@@ -1,0 +1,523 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Abitudini">
+<meta name="theme-color" content="#EDEFEB" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0F1113" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
+<title>Abitudini</title>
+<style>
+/* Layout: una colonna da telefono (max 480px), come la Scheda GT: giorno, settimana, mese, Albo d'Oro, collegamento. */
+:root{
+  --bg:#EDEFEB; --surface:#FFFFFF; --sunk:#E2E5E0; --ink:#16191C; --muted:#5C636A; --line:#D3D8D2;
+  --btn:#16191C; --btn-ink:#FFFFFF;
+  --g1:#CF4129; --g2:#0D8676; --g3:#3254D1; --g4:#B87C08; --ok:#2B9A4A; --bad:#CF4129;
+  --display:"DIN Condensed","Avenir Next Condensed","Arial Narrow","Roboto Condensed","Liberation Sans",sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,"Liberation Sans",sans-serif;
+  --r:14px;
+  padding-top:env(safe-area-inset-top,0px);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1113; --surface:#191C20; --sunk:#23272C; --ink:#ECEEEA; --muted:#9BA2A9; --line:#2C3137;
+  --btn:#ECEEEA; --btn-ink:#121416;
+  --g1:#F06B54; --g2:#2DB5A2; --g3:#7088FF; --g4:#E5AA37; --ok:#46C46A; --bad:#F06B54; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1113; --surface:#191C20; --sunk:#23272C; --ink:#ECEEEA; --muted:#9BA2A9; --line:#2C3137;
+  --btn:#ECEEEA; --btn-ink:#121416;
+  --g1:#F06B54; --g2:#2DB5A2; --g3:#7088FF; --g4:#E5AA37; --ok:#46C46A; --bad:#F06B54; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--body);margin:0}
+.wrap{max-width:480px;margin:0 auto;padding-inline:16px;padding-block:14px 60px;display:flex;flex-direction:column;gap:24px}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--g3);outline-offset:2px}
+.eyebrow{font:600 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h1,h2,.num{font-family:var(--display);font-weight:700;letter-spacing:.01em;margin:0;text-wrap:balance}
+h1{font-size:38px;line-height:1}
+h2{font-size:26px;line-height:1}
+.num{font-variant-numeric:tabular-nums}
+.sync{font-size:12px;color:var(--muted)}
+.sync b{color:var(--ink);font-weight:600}
+.sync b.warn{color:var(--g1)}
+
+/* intestazione con frecce per cambiare giorno */
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
+.nav{display:flex;gap:6px;flex-shrink:0}
+.nav button{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font:700 22px/1 var(--display)}
+.nav button[disabled]{opacity:.35}
+
+/* riepilogo del giorno */
+.boxes{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.box{width:30px;height:30px;border-radius:8px;border:2px dashed var(--line)}
+.box.on{background:var(--ok);border:2px solid var(--ok)}
+.box.bad{background:var(--bad);border:2px solid var(--bad)}
+.boxes .bl{font-size:13px;color:var(--muted);margin-left:6px}
+.boxes .bl b{color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){.box.on,.box.bad{animation:pop .3s ease-out both}@keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}}
+
+/* abitudini del giorno */
+.habits{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hb{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 12px 12px 14px;display:flex;flex-direction:column;gap:10px}
+.hb .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hb .nm{font:700 21px/1.05 var(--display);min-width:0}
+.hb .nm small{display:block;font:500 12px/1.35 var(--body);color:var(--muted);margin-top:2px}
+.hb.done{border-color:color-mix(in srgb,var(--ok) 55%,var(--line))}
+.hb.over{border-color:color-mix(in srgb,var(--bad) 55%,var(--line))}
+.tick{flex-shrink:0;width:48px;height:48px;border-radius:50%;border:2px solid var(--line);background:var(--sunk);display:grid;place-items:center;font:700 24px/1 var(--body);color:transparent}
+.tick[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.duo{display:flex;gap:6px;flex-shrink:0}
+.duo button{border:2px solid var(--line);background:var(--sunk);border-radius:12px;height:46px;padding:0 10px;display:flex;align-items:center;gap:5px;font-weight:600;font-size:14px;color:var(--muted)}
+.duo .ok[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.duo .ko[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.duo .ok.soft{border-color:var(--ok);color:var(--ok);background:transparent}
+.duo i{font-style:normal;font-size:17px;line-height:1}
+.ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kgbox{display:flex;align-items:center;background:var(--sunk);border-radius:10px;overflow:hidden}
+.kgbox button{border:0;background:none;width:38px;height:40px;font:700 22px/1 var(--display);color:var(--ink)}
+.kgbox input{width:58px;border:0;background:transparent;text-align:right;font:700 22px/1 var(--display);padding:8px 0;color:var(--ink);font-variant-numeric:tabular-nums}
+.kgbox input::placeholder{color:var(--muted);opacity:.6}
+.kgbox span{font-size:12px;color:var(--muted);padding:0 4px 0 3px}
+.quick{display:flex;gap:5px;flex-wrap:wrap}
+.quick button{border:1px solid var(--line);background:var(--surface);border-radius:9px;min-width:42px;height:40px;padding:0 8px;font:700 16px/1 var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
+.quick button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.mini{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.mini .track{flex:1;height:6px}
+
+/* settimana */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:12px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:82px;min-width:0}
+.day .dn{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.day .dd{font:700 22px/1 var(--display)}
+.day .pc{font:700 12px/1 var(--display);color:var(--muted)}
+.day .meter{width:70%;height:5px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.day .meter span{display:block;height:100%;background:var(--ok)}
+.day.sel{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.day.future{opacity:.45}
+.day.full .pc{color:var(--ok)}
+
+/* barre */
+.bars{display:flex;flex-direction:column;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 12px;margin-top:12px}
+.brow{display:grid;grid-template-columns:92px minmax(0,1fr) 112px;gap:8px;align-items:center;font-size:13px}
+.brow .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track{height:12px;border-radius:6px;background:var(--sunk);overflow:hidden}
+.fill{height:100%;border-radius:6px;background:var(--ink)}
+.fill.ok{background:var(--ok)}
+.fill.bad{background:var(--bad)}
+.brow .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.brow .v b{color:var(--ink);font-weight:600}
+.brow .v b.bad{color:var(--bad)}
+.brow .v b.ok{color:var(--ok)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
+.kpi .num{font-size:28px;line-height:1;display:block}
+.kpi small{font-size:11.5px;color:var(--muted)}
+.sub{font-size:14px;color:var(--muted);margin-top:6px}
+.sub b{color:var(--ink)}
+
+/* albo d'oro */
+.albo{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.albo h3{font:600 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:10px 0 2px}
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center}
+.rec .t{font-size:14px;font-weight:600}
+.rec .val{font:700 26px/1 var(--display);text-align:right;grid-row:span 2}
+.rec .d{font-size:12px;color:var(--muted)}
+.rec .badge{grid-column:1 / -1;font-size:12px;color:var(--g4);font-weight:600;margin-top:4px}
+.empty{font-size:14px;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:16px}
+
+/* collegamento */
+details{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+summary{font-weight:600;cursor:pointer}
+details p,details li{font-size:13.5px;color:var(--muted)}
+details label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);margin-top:10px}
+details input{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:10px;font-size:15px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ghost{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-size:14px}
+.primary{border:0;border-radius:12px;background:var(--btn);color:var(--btn-ink);padding:11px 16px;font:700 18px/1 var(--display);letter-spacing:.02em}
+.linkbtn{border:0;background:none;padding:0;color:var(--g3);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.demobar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--g1);color:#fff;font-size:13px}
+.demobar .ghost{background:#fff;color:#16191C;border:0;font-weight:600}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:999px;font-size:14px;z-index:20;max-width:90vw;text-align:center}
+</style>
+</head><body>
+
+<div class="demobar" id="demoBar" hidden><span><b>Esempio</b> con dati finti. Non viene salvato nulla.</span><button type="button" class="ghost" id="demoExit">Esci</button></div>
+<div class="wrap" id="app">
+  <header>
+    <div class="ttl">
+      <div class="eyebrow" id="eyebrow">Habit tracker</div>
+      <h1 id="dayTitle">Oggi</h1>
+      <div class="sync" id="sync"></div>
+    </div>
+    <div class="nav"><button type="button" id="prev" aria-label="Giorno prima">‹</button><button type="button" id="next" aria-label="Giorno dopo">›</button></div>
+  </header>
+
+  <section aria-label="Abitudini del giorno">
+    <div class="boxes" id="boxes"></div>
+    <ol class="habits" id="habits"></ol>
+  </section>
+
+  <section aria-label="Settimana">
+    <div class="eyebrow">Settimana</div>
+    <h2 id="wkTitle">Questa settimana</h2>
+    <div class="week" id="week"></div>
+    <div class="bars" id="wkBars"></div>
+  </section>
+
+  <section aria-label="Mese">
+    <div class="eyebrow">Mese</div>
+    <h2 id="moTitle"></h2>
+    <div class="kpis" id="kpis"></div>
+    <div class="bars" id="moBars"></div>
+  </section>
+
+  <section aria-label="Albo d'Oro">
+    <div class="eyebrow">Record dell'anno</div>
+    <h2>Albo d'Oro</h2>
+    <div class="albo" id="albo"></div>
+  </section>
+
+  <details id="setup">
+    <summary>Collegamento al foglio</summary>
+    <p>Incolla l'indirizzo dell'App web di Apps Script e la chiave che hai scritto nello script. Ogni tocco finisce nella cella del giorno sul foglio. Senza rete l'app ricorda le modifiche e le manda appena torni online.</p>
+    <label>Indirizzo App web<input id="cfgUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec"></label>
+    <label>Chiave<input id="cfgKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <div class="row"><button type="button" class="primary" id="cfgSave">Collega</button><button type="button" class="ghost" id="reload">Ricarica dal foglio</button></div>
+    <p>Vuoi vedere come appare dopo qualche mese? <button type="button" class="linkbtn" id="demoGo">Apri l'esempio</button></p>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+const KEY = 'abitudini-v1', CFG = 'abitudini-cfg-v1';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const GG = ['lun','mar','mer','gio','ven','sab','dom'];
+// abitudini di partenza (le stesse del foglio), usate per l'esempio e finché il foglio non risponde
+const BASE = [
+  {riga: 7, nome: 'Lavoro (Ore)', target: '6h / giorno'},
+  {riga: 8, nome: 'Lettura (Minuti)', target: '20 min / giorno'},
+  {riga: 9, nome: 'Pianoforte (Minuti)', target: '210 min / sett'},
+  {riga: 10, nome: 'Allenamento', target: '4 su 7'},
+  {riga: 11, nome: 'Sveglia', target: '5 su 7'},
+  {riga: 12, nome: 'J', target: 'Max 1'},
+  {riga: 13, nome: 'S', target: 'Max 2'},
+  {riga: 14, nome: 'Pulizia mattutina (15 min)', target: '7 su 7'}
+];
+
+// stato: data = copia del foglio, queue = modifiche da mandare, marks = giorni segnati "pulito"
+let state = {data: null, queue: [], marks: {}};
+let cfg = {url: '', k: ''};
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) state = {data: s.data || null, queue: s.queue || [], marks: s.marks || {}}; } catch (e) {}
+try { const c = JSON.parse(localStorage.getItem(CFG)); if (c) cfg = Object.assign(cfg, c); } catch (e) {}
+let demo = false, realState = null, sel = null, busy = false, flushT = null, lastErr = '';
+const save = () => { if (demo) return; try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+// date locali
+const iso = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const parse = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const monday = d => addDays(d, -((d.getDay()+6)%7));
+const dim = (y, m) => new Date(y, m+1, 0).getDate();
+const fnum = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+sel = today();
+
+// tipo di abitudine letto dal target scritto nel foglio
+function kind(h){
+  const t = h.target.toLowerCase().replace(',', '.'), n = h.nome.toLowerCase();
+  let m;
+  const label = h.nome.replace(/\s*\((ore|minuti)\)\s*/i, '').trim();
+  if ((m = t.match(/max\s*(\d+)/))) return {label, k: 'vice', max: +m[1]};
+  if ((m = t.match(/(\d+)\s*su\s*(\d+)/))) return {label, k: 'check', per: +m[1]};
+  const unit = /\bh\b|ore|\dh/.test(t) || /\(ore\)/.test(n) ? 'h' : 'min';
+  const isNum = /(\d+(\.\d+)?)\s*(h|min)/.test(t) || /\((ore|minuti)\)/.test(n);
+  if (isNum) {
+    const x = parseFloat((t.match(/(\d+(\.\d+)?)/) || [0, 0])[1]);
+    if (/sett/.test(t)) return {label, k: 'num', unit, daily: 0, weekly: x};
+    return {label, k: 'num', unit, daily: x, weekly: x * 7};
+  }
+  return {label, k: 'check', per: 7};
+}
+function habits(){
+  const D = state.data; let list = null;
+  if (D && D.mesi) { const cur = D.mesi[sel.getMonth()]; list = cur && cur.length ? cur : D.mesi.filter(Boolean).find(m => m.length); }
+  return (list || BASE).map(h => Object.assign({riga: h.riga, nome: h.nome, target: h.target}, kind(h)));
+}
+const yearOK = d => !state.data || !state.data.anno || d.getFullYear() === state.data.anno;
+function val(d, riga){
+  const D = state.data; if (!D || !D.mesi || !yearOK(d)) return null;
+  const m = D.mesi[d.getMonth()]; if (!m) return null;
+  const h = m.find(x => x.riga === riga); if (!h) return null;
+  const v = h.v[d.getDate()-1];
+  return v === undefined ? null : v;
+}
+function putLocal(d, riga, v){
+  if (!state.data) state.data = {anno: d.getFullYear(), mesi: [], albo: []};
+  const D = state.data, mi = d.getMonth();
+  if (!D.mesi[mi]) D.mesi[mi] = BASE.map(b => Object.assign({}, b, {v: []}));
+  let h = D.mesi[mi].find(x => x.riga === riga);
+  if (!h) { const b = habits().find(x => x.riga === riga); h = {riga, nome: b ? b.nome : '', target: b ? b.target : '', v: []}; D.mesi[mi].push(h); }
+  h.v[d.getDate()-1] = v;
+}
+const mk = (d, riga) => iso(d) + '|' + riga;
+const isTrue = v => v === true || v === 'TRUE';
+const numv = v => typeof v === 'number' ? v : (v && !isNaN(parseFloat(v)) && !isTrue(v) ? parseFloat(String(v).replace(',', '.')) : 0);
+
+// scrittura: aggiorna subito l'app e mette in coda la cella per il foglio
+function setVal(d, riga, v){
+  if (!yearOK(d)) { toast('Il foglio è del ' + state.data.anno + ': questo giorno non ha una cella'); return; }
+  putLocal(d, riga, v);
+  if (!demo) {
+    const q = {m: d.getMonth()+1, d: d.getDate(), r: riga, v: v === null ? '' : String(v)};
+    state.queue = state.queue.filter(x => !(x.m === q.m && x.d === q.d && x.r === q.r)).concat(q);
+    save(); clearTimeout(flushT); flushT = setTimeout(flush, 700);
+  }
+  render();
+}
+const api = params => cfg.url + (cfg.url.includes('?') ? '&' : '?') + new URLSearchParams(Object.assign({k: cfg.k, t: Date.now()}, params));
+async function flush(){
+  if (demo || busy || !cfg.url || !state.queue.length) { setSync(); return; }
+  busy = true; setSync();
+  try {
+    while (state.queue.length) {
+      const q = state.queue[0];
+      const r = await fetch(api({a: 'set', m: q.m, d: q.d, r: q.r, v: q.v})).then(x => x.json());
+      if (!r.ok) { lastErr = r.errore === 'chiave' ? 'chiave sbagliata' : 'il foglio ha rifiutato la modifica'; if (r.errore === 'cella' || r.errore === 'valore') { state.queue.shift(); save(); continue; } break; }
+      state.queue.shift(); lastErr = ''; save();
+    }
+  } catch (e) { lastErr = navigator.onLine ? 'il foglio non risponde' : 'sei offline'; }
+  busy = false; setSync();
+}
+async function load(quiet){
+  if (demo || !cfg.url) { setSync(); return; }
+  busy = true; setSync();
+  try {
+    const r = await fetch(api({a: 'get'})).then(x => x.json());
+    if (!r.ok) throw new Error(r.errore === 'chiave' ? 'chiave sbagliata' : (r.errore || 'errore'));
+    state.data = {anno: r.anno, mesi: r.mesi, albo: r.albo || [], ora: r.ora};
+    // le modifiche non ancora arrivate al foglio restano visibili
+    state.queue.forEach(q => { const d = new Date(r.anno, q.m-1, q.d); putLocal(d, q.r, q.v === '' ? null : q.v === 'true' ? true : q.v === 'false' ? false : Number(q.v)); });
+    lastErr = ''; save(); if (!quiet) toast('Foglio caricato');
+  } catch (e) { lastErr = e.message === 'chiave sbagliata' ? e.message : (navigator.onLine ? 'il foglio non risponde' : 'sei offline'); }
+  busy = false; render(); flush();
+}
+function setSync(){
+  const el = $('sync');
+  if (demo) { el.innerHTML = '<b class="warn">Dati di esempio</b>, niente viene salvato'; return; }
+  if (!cfg.url) { el.innerHTML = '<b class="warn">Non collegato al foglio</b>. Apri Collegamento in fondo'; return; }
+  const n = state.queue.length;
+  if (busy) { el.innerHTML = '<b>Sincronizzo</b> col foglio…'; return; }
+  if (lastErr) { el.innerHTML = '<b class="warn">' + esc(lastErr[0].toUpperCase() + lastErr.slice(1)) + '</b>' + (n ? ', ' + n + (n === 1 ? ' modifica in attesa' : ' modifiche in attesa') : ''); return; }
+  el.innerHTML = n ? '<b>' + n + (n === 1 ? ' modifica' : ' modifiche') + '</b> da mandare al foglio' : '<b>Sincronizzato</b> col foglio Google';
+}
+
+// quando un'abitudine conta come fatta in un giorno
+// J e S: nel foglio la spunta (TRUE) è lo sgarro, come nelle formule "Superato" e nelle streak dell'Albo d'Oro
+function status(h, d){
+  const v = val(d, h.riga), past = d < today();
+  if (h.k === 'num') { const n = numv(v); return h.daily ? (n >= h.daily ? 'ok' : '') : (n > 0 ? 'ok' : ''); }
+  if (h.k === 'check') return isTrue(v) ? 'ok' : '';
+  if (isTrue(v)) return 'bad';
+  return state.marks[mk(d, h.riga)] || past ? 'ok' : '';
+}
+function weekStats(h, from, to){
+  let sum = 0, cnt = 0, bad = 0;
+  for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
+    const v = val(d, h.riga);
+    if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; }
+  }
+  return {sum, cnt, bad};
+}
+
+function renderDay(){
+  const H = habits(), t = today(), diff = Math.round((t - sel) / 864e5);
+  $('dayTitle').textContent = diff === 0 ? 'Oggi' : diff === 1 ? 'Ieri' : GG[(sel.getDay()+6)%7] + ' ' + sel.getDate() + ' ' + MESI[sel.getMonth()].slice(0,3);
+  $('eyebrow').textContent = diff <= 1 ? GG[(sel.getDay()+6)%7] + ' ' + sel.getDate() + ' ' + MESI[sel.getMonth()] + ' ' + sel.getFullYear() : 'Habit tracker · ' + sel.getFullYear();
+  $('next').disabled = diff <= 0;
+  const st = H.map(h => status(h, sel)), ok = st.filter(s => s === 'ok').length, bad = st.filter(s => s === 'bad').length;
+  $('boxes').innerHTML = st.map(s => '<span class="box' + (s === 'ok' ? ' on' : s === 'bad' ? ' bad' : '') + '"></span>').join('') +
+    '<span class="bl"><b>' + ok + ' su ' + H.length + '</b> fatte' + (bad ? ', ' + bad + (bad === 1 ? ' sgarro' : ' sgarri') : '') + '</span>';
+  const mon = monday(sel), sun = addDays(mon, 6);
+  $('habits').innerHTML = H.map((h, i) => {
+    const v = val(sel, h.riga), s = st[i], w = weekStats(h, mon, sun);
+    let ctl = '', hint = '';
+    if (h.k === 'num') {
+      const n = numv(v), step = h.unit === 'h' ? 0.5 : 5;
+      const quick = h.unit === 'h' ? [2, 4, 6, 8] : h.daily ? [10, 20, 30] : [15, 30, 45, 60];
+      ctl = '<div class="ctl"><div class="kgbox"><button type="button" data-step="-' + step + '" data-r="' + h.riga + '" aria-label="Meno">−</button>' +
+        '<input type="text" inputmode="decimal" data-in="' + h.riga + '" value="' + (v === null || v === '' ? '' : fnum(n)) + '" placeholder="0" aria-label="' + esc(h.label) + '"><span>' + h.unit + '</span>' +
+        '<button type="button" data-step="' + step + '" data-r="' + h.riga + '" aria-label="Più">+</button></div>' +
+        '<div class="quick">' + quick.map(q => '<button type="button" data-set="' + q + '" data-r="' + h.riga + '" class="' + (n === q ? 'on' : '') + '">' + q + '</button>').join('') + '</div></div>';
+      const goal = h.weekly, pct = goal ? Math.min(1, w.sum / goal) : 0;
+      hint = '<div class="mini"><span>Settimana ' + fnum(w.sum) + ' / ' + fnum(goal) + ' ' + h.unit + '</span><div class="track"><div class="fill' + (w.sum >= goal ? ' ok' : '') + '" style="width:' + (pct*100).toFixed(1) + '%"></div></div></div>';
+      return '<li class="hb' + (s === 'ok' ? ' done' : '') + '"><div class="top"><div class="nm">' + esc(h.label) + '<small>' + esc(h.target) + '</small></div></div>' + ctl + hint + '</li>';
+    }
+    if (h.k === 'check') {
+      ctl = '<button type="button" class="tick" data-tick="' + h.riga + '" aria-pressed="' + isTrue(v) + '" aria-label="' + esc(h.label) + ' fatto">✓</button>';
+      return '<li class="hb' + (s === 'ok' ? ' done' : '') + '"><div class="top"><div class="nm">' + esc(h.label) + '<small>' + esc(h.target) + ' · questa settimana ' + w.cnt + ' su ' + h.per + '</small></div>' + ctl + '</div></li>';
+    }
+    const marked = !!state.marks[mk(sel, h.riga)], okOn = !isTrue(v) && marked, soft = !isTrue(v) && !marked && sel < today();
+    ctl = '<div class="duo"><button type="button" class="ok' + (soft ? ' soft' : '') + '" data-ok="' + h.riga + '" aria-pressed="' + okOn + '"><i>✓</i>Pulito</button>' +
+      '<button type="button" class="ko" data-ko="' + h.riga + '" aria-pressed="' + isTrue(v) + '"><i>✕</i>Sgarro</button></div>';
+    const over = w.bad > h.max;
+    return '<li class="hb' + (s === 'bad' ? ' over' : s === 'ok' ? ' done' : '') + '"><div class="top"><div class="nm">' + esc(h.label) +
+      '<small>' + esc(h.target) + ' a settimana · ' + (w.bad ? w.bad + (w.bad === 1 ? ' sgarro' : ' sgarri') : 'nessuno sgarro') + (over ? ', superato' : '') + '</small></div>' + ctl + '</div></li>';
+  }).join('');
+}
+
+function renderWeek(){
+  const H = habits(), mon = monday(sel), sun = addDays(mon, 6), t = today();
+  const same = iso(monday(t)) === iso(mon);
+  $('wkTitle').textContent = same ? 'Questa settimana' : mon.getDate() + ' ' + MESI[mon.getMonth()].slice(0,3) + ' – ' + sun.getDate() + ' ' + MESI[sun.getMonth()].slice(0,3);
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(mon, i), fut = d > t;
+    const ok = fut ? 0 : H.filter(h => status(h, d) === 'ok').length, p = H.length ? ok / H.length : 0;
+    html += '<button type="button" class="day' + (iso(d) === iso(sel) ? ' sel' : '') + (fut ? ' future' : '') + (p === 1 ? ' full' : '') + '" data-day="' + iso(d) + '"' + (fut ? ' disabled' : '') + '>' +
+      '<span class="dn">' + GG[i] + '</span><span class="dd">' + d.getDate() + '</span><span class="meter"><span style="width:' + (p*100).toFixed(0) + '%"></span></span><span class="pc">' + (fut ? '' : ok + '/' + H.length) + '</span></button>';
+  }
+  $('week').innerHTML = html;
+  $('wkBars').innerHTML = H.map(h => {
+    const w = weekStats(h, mon, sun);
+    if (h.k === 'vice') {
+      const over = w.bad > h.max;
+      return bar(h.label, h.max ? Math.min(1, w.bad / (h.max + 1)) : (w.bad ? 1 : 0), over ? 'bad' : '', '<b class="' + (over ? 'bad' : 'ok') + '">' + w.bad + '</b> / max ' + h.max);
+    }
+    const got = h.k === 'num' ? w.sum : w.cnt, goal = h.k === 'num' ? h.weekly : h.per;
+    return bar(h.label, goal ? Math.min(1, got / goal) : 0, got >= goal ? 'ok' : '', '<b' + (got >= goal ? ' class="ok"' : '') + '>' + fnum(got) + '</b> / ' + fnum(goal) + (h.k === 'num' ? ' ' + h.unit : ''));
+  }).join('');
+}
+const bar = (n, p, cls, v) => '<div class="brow"><span class="n">' + esc(n) + '</span><div class="track"><div class="fill ' + cls + '" style="width:' + (p*100).toFixed(1) + '%"></div></div><span class="v">' + v + '</span></div>';
+
+function renderMonth(){
+  const H = habits(), y = sel.getFullYear(), m = sel.getMonth(), days = dim(y, m), t = today();
+  $('moTitle').textContent = MESI[m][0].toUpperCase() + MESI[m].slice(1) + ' ' + y;
+  const first = new Date(y, m, 1), last = new Date(y, m, days), upTo = last < t ? last : t;
+  let perfect = 0, tracked = 0, sumP = 0;
+  for (let d = new Date(first); d <= upTo; d = addDays(d, 1)) {
+    const any = H.some(h => { const v = val(d, h.riga); return v !== null && v !== '' && v !== false && v !== 'FALSE'; });
+    const ok = H.filter(h => status(h, d) === 'ok').length;
+    if (any) { tracked++; sumP += ok / H.length; if (ok === H.length) perfect++; }
+  }
+  // record di giorni puliti di fila per gli sgarri (come nell'Albo d'Oro)
+  const vices = H.filter(h => h.k === 'vice');
+  const streak = h => { let n = 0; for (let d = addDays(t, -1); d >= new Date(y, 0, 1); d = addDays(d, -1)) { if (isTrue(val(d, h.riga))) break; n++; } return n; };
+  $('kpis').innerHTML = '<div class="kpi"><span class="num">' + tracked + '</span><small>giorni segnati</small></div>' +
+    '<div class="kpi"><span class="num">' + perfect + '</span><small>giorni perfetti</small></div>' +
+    '<div class="kpi"><span class="num">' + (tracked ? Math.round(sumP / tracked * 100) : 0) + '%</span><small>media del giorno</small></div>' +
+    vices.map(h => '<div class="kpi"><span class="num">' + streak(h) + '</span><small>giorni puliti ' + esc(h.label) + ' di fila</small></div>').join('');
+  $('moBars').innerHTML = H.map(h => {
+    const w = weekStats(h, first, last);
+    if (h.k === 'vice') {
+      const max = Math.round(h.max * days / 7), over = w.bad > max;
+      return bar(h.label, max ? Math.min(1, w.bad / (max + 1)) : 0, over ? 'bad' : '', '<b class="' + (over ? 'bad' : 'ok') + '">' + w.bad + '</b> / max ' + max);
+    }
+    const goal = h.k === 'num' ? (h.daily ? h.daily * days : h.weekly * days / 7) : Math.floor(h.per * days / 7);
+    const got = h.k === 'num' ? w.sum : w.cnt, p = goal ? got / goal : 0;
+    return bar(h.label, Math.min(1, p), p >= 1 ? 'ok' : '', '<b' + (p >= 1 ? ' class="ok"' : '') + '>' + Math.round(p * 100) + '%</b> · ' + fnum(got) + (h.k === 'num' ? ' ' + h.unit : '/' + goal));
+  }).join('');
+}
+
+// Albo d'Oro: righe lette dal foglio così come sono, le intestazioni dicono quali colonne mostrare
+function renderAlbo(){
+  const rows = (state.data && state.data.albo) || [];
+  if (!rows.length) { $('albo').innerHTML = '<div class="empty">' + (demo ? 'Nell\'esempio l\'Albo d\'Oro non c\'è: arriva dal foglio quando colleghi l\'app.' : 'L\'Albo d\'Oro arriva dal foglio quando colleghi l\'app.') + '</div>'; return; }
+  let head = null, html = '';
+  const col = (names) => head ? head.findIndex(c => names.some(n => c.toLowerCase().includes(n))) : -1;
+  const bad = s => !s || /^#|ERROR|N\/A/i.test(s);
+  rows.forEach(r => {
+    const filled = r.filter(c => String(c).trim()).length;
+    if (!filled) return;
+    if (filled === 1 && r[0]) { html += '<h3>' + esc(r[0]) + '</h3>'; return; }
+    if (/metrica|^abitudine$/i.test(r[0])) { head = r; return; }
+    const iv = Math.max(col(['valore record', 'media annuale']), 1), id = col(['riferimento']), ib = col(['badge', 'livello raggiunto']);
+    let v = r[iv]; if (/media annuale/i.test(head ? head[iv] : '') && !bad(v) && !/%/.test(v) && !isNaN(parseFloat(v))) v = Math.round(parseFloat(v.replace(',', '.')) * 100) + '%';
+    html += '<div class="rec"><span class="t">' + esc(r[0]) + '</span><span class="val">' + esc(bad(v) ? '—' : v) + '</span><span class="d">' + esc(id > -1 && !bad(r[id]) ? r[id] : '') + '</span>' +
+      (ib > -1 && r[ib] ? '<span class="badge">' + esc(r[ib]) + '</span>' : '') + '</div>';
+  });
+  $('albo').innerHTML = html;
+}
+
+function render(){ renderDay(); renderWeek(); renderMonth(); renderAlbo(); setSync(); }
+
+// tocchi
+$('habits').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const H = habits();
+  if (b.dataset.tick) { const r = +b.dataset.tick; setVal(sel, r, !isTrue(val(sel, r))); return; }
+  if (b.dataset.ko) { const r = +b.dataset.ko; delete state.marks[mk(sel, r)]; setVal(sel, r, !isTrue(val(sel, r))); return; }
+  if (b.dataset.ok) {
+    const r = +b.dataset.ok, k = mk(sel, r), was = !!state.marks[k] && !isTrue(val(sel, r));
+    if (was) delete state.marks[k]; else state.marks[k] = 1;
+    save(); setVal(sel, r, false); return;
+  }
+  if (b.dataset.step) { const r = +b.dataset.r, n = Math.max(0, Math.round((numv(val(sel, r)) + parseFloat(b.dataset.step)) * 10) / 10); setVal(sel, r, n || null); return; }
+  if (b.dataset.set) { const r = +b.dataset.r, q = parseFloat(b.dataset.set); setVal(sel, r, numv(val(sel, r)) === q ? null : q); return; }
+});
+$('habits').addEventListener('change', e => {
+  const i = e.target.closest('input[data-in]'); if (!i) return;
+  const raw = i.value.trim().replace(',', '.'), n = parseFloat(raw);
+  setVal(sel, +i.dataset.in, raw === '' || isNaN(n) || n <= 0 ? null : Math.round(n * 10) / 10);
+});
+$('habits').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) e.target.blur(); });
+$('week').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) { sel = parse(b.dataset.day); render(); } });
+$('prev').addEventListener('click', () => { sel = addDays(sel, -1); render(); });
+$('next').addEventListener('click', () => { if (sel < today()) { sel = addDays(sel, 1); render(); } });
+
+$('cfgUrl').value = cfg.url; $('cfgKey').value = cfg.k;
+$('cfgSave').addEventListener('click', () => {
+  cfg = {url: $('cfgUrl').value.trim(), k: $('cfgKey').value.trim()};
+  try { localStorage.setItem(CFG, JSON.stringify(cfg)); } catch (e) {}
+  if (demo) exitDemo();
+  if (!cfg.url) { toast('Manca l\'indirizzo'); setSync(); return; }
+  load();
+});
+$('reload').addEventListener('click', () => load());
+if (!cfg.url) $('setup').open = true;
+
+// esempio con dati finti (non tocca né il foglio né i dati veri)
+function fake(){
+  const t = today(), y = t.getFullYear(), mesi = [];
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let m = 0; m < 12; m++) {
+    mesi[m] = BASE.map(b => Object.assign({}, b, {v: []}));
+    for (let d = 1; d <= dim(y, m); d++) {
+      const day = new Date(y, m, d); if (day >= t) continue;
+      const we = day.getDay() === 0 || day.getDay() === 6;
+      mesi[m].forEach(h => {
+        if (h.riga === 7) h.v[d-1] = we ? (rnd() < .3 ? 2 : null) : Math.round((4 + rnd() * 4) * 2) / 2;
+        else if (h.riga === 8) h.v[d-1] = rnd() < .75 ? [10, 20, 20, 30][Math.floor(rnd()*4)] : null;
+        else if (h.riga === 9) h.v[d-1] = rnd() < .55 ? [20, 30, 45][Math.floor(rnd()*3)] : null;
+        else if (h.riga === 12 || h.riga === 13) h.v[d-1] = rnd() < (h.riga === 12 ? .1 : .2);
+        else h.v[d-1] = rnd() < (h.riga === 10 ? .55 : h.riga === 11 ? .7 : .8);
+      });
+    }
+  }
+  return {anno: y, mesi, albo: [], ora: null};
+}
+function enterDemo(){ if (demo) return; realState = state; state = {data: fake(), queue: [], marks: {}}; demo = true; $('demoBar').hidden = false; sel = today(); window.scrollTo(0, 0); render(); }
+function exitDemo(){ if (!demo) return; state = realState; demo = false; $('demoBar').hidden = true; render(); }
+$('demoGo').addEventListener('click', enterDemo);
+$('demoExit').addEventListener('click', exitDemo);
+
+let toastT = null;
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2200); }
+
+// quando riapri l'app: torna a oggi se è passato un giorno, rilegge il foglio, manda le modifiche in attesa
+let lastDay = iso(today());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (iso(today()) !== lastDay) { lastDay = iso(today()); sel = today(); }
+  load(true);
+});
+window.addEventListener('online', () => flush());
+if (new URLSearchParams(location.search).has('esempio')) enterDemo();
+render(); load(true);
+})();
+</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js')}</script>
+</body></html>

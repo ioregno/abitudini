@@ -1,0 +1,14 @@
+{
+ "name": "Abitudini",
+ "short_name": "Abitudini",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#EDEFEB",
+ "theme_color": "#16191C",
+ "lang": "it",
+ "icons": [
+  {"src": "icon-180.png", "sizes": "180x180", "type": "image/png"},
+  {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"}
+ ]
+}
