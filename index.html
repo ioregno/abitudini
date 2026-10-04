@@ -97,6 +97,50 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .day.future{opacity:.45}
 .day.full .pc{color:var(--ok)}
 
+/* calendario stile foglio: abitudini in riga, giorni in colonna */
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:9px 6px;font-weight:600;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.calwrap{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.cal{border-collapse:separate;border-spacing:0;font-size:13px}
+.cal th,.cal td{padding:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
+.cal thead th{background:#1B5E1F;color:#fff;font-weight:700;height:40px;min-width:42px;line-height:1.1;position:sticky;top:0}
+.cal thead th small{display:block;font-size:10px;font-weight:600;opacity:.85;text-transform:uppercase}
+.cal thead th.today{background:#0B3D10;box-shadow:inset 0 -3px 0 #FFD600}
+.cal .hn{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;padding:0 8px;min-width:92px;max-width:92px;font-weight:600;font-size:12.5px;line-height:1.15}
+.cal .hn small{display:block;font-weight:500;font-size:10.5px;color:var(--muted)}
+.cal thead .hn{background:#1B5E1F;color:#fff;z-index:3}
+.cal td.c{width:42px;min-width:42px;height:42px}
+.cal td.sun{background:#FFF5D0}
+.cal td.fut{background:var(--sunk);opacity:.55}
+.cal td.mon,.cal th.mon{border-left:2px solid var(--muted)}
+.cal input{width:42px;height:42px;border:0;background:transparent;text-align:center;font:700 16px/1 var(--display);color:inherit;padding:0;font-variant-numeric:tabular-nums;border-radius:0}
+.cal input::placeholder{color:var(--line)}
+.cal button.cb{width:42px;height:42px;border:0;background:transparent;font:700 18px/1 var(--body);color:inherit;padding:0}
+.cal button.cb:empty::after{content:"";display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-radius:5px;vertical-align:middle}
+.cal button.cb[disabled]{cursor:default}
+.cal .tot{min-width:58px;padding:0 4px;font:700 14px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.cal .tot small{display:block;font:500 10px/1.2 var(--body);opacity:.85}
+.cal thead th.tot{font:700 13px/1.1 var(--body)}
+.cal tfoot td{height:30px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cal tfoot .hn{font-size:11.5px;color:var(--muted)}
+/* colori presi dalla formattazione condizionale del foglio */
+.L-gold{background:#FFD600!important;color:#3F2600}
+.L-green{background:#C6E5C6!important;color:#195E1E}
+.L-orange{background:#FFD8A5!important;color:#8C4411}
+.L-red{background:#EF4444!important;color:#fff}
+.L-sgarro{background:#FCE8E6!important;color:#C4211E}
+.L-grey{background:#F2F2F2!important;color:#666}
+/* settimana: tutto dentro lo schermo senza scorrere */
+.cal.wk{width:100%;table-layout:fixed}
+.cal.wk .hn{min-width:0;max-width:none;width:76px;padding:0 5px;font-size:11.5px;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}
+.cal.wk thead th{min-width:0}
+.cal.wk td.c{width:auto;min-width:0}
+.cal.wk input,.cal.wk button.cb{width:100%}
+.cal.wk .tot{width:52px;min-width:0;padding:0 2px;font-size:13px}
+.cal.wk col.tc{width:52px}.cal.wk col.nc{width:76px}
+.calhint{font-size:12.5px;color:var(--muted);margin:8px 2px 0}
+
 /* barre */
 .bars{display:flex;flex-direction:column;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 12px;margin-top:12px}
 .brow{display:grid;grid-template-columns:92px minmax(0,1fr) 112px;gap:8px;align-items:center;font-size:13px}
@@ -147,22 +191,19 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
   <header>
     <div class="ttl">
       <div class="eyebrow" id="eyebrow">Habit tracker</div>
-      <h1 id="dayTitle">Oggi</h1>
+      <h1 id="calTitle">Settimana</h1>
       <div class="sync" id="sync"></div>
     </div>
-    <div class="nav"><button type="button" id="prev" aria-label="Giorno prima">‹</button><button type="button" id="next" aria-label="Giorno dopo">›</button></div>
+    <div class="nav"><button type="button" id="prev" aria-label="Prima">‹</button><button type="button" id="next" aria-label="Dopo">›</button></div>
   </header>
 
-  <section aria-label="Abitudini del giorno">
-    <div class="boxes" id="boxes"></div>
-    <ol class="habits" id="habits"></ol>
-  </section>
-
-  <section aria-label="Settimana">
-    <div class="eyebrow">Settimana</div>
-    <h2 id="wkTitle">Questa settimana</h2>
-    <div class="week" id="week"></div>
-    <div class="bars" id="wkBars"></div>
+  <section aria-label="Calendario">
+    <div class="seg" id="mode" role="group" aria-label="Vista">
+      <button type="button" data-m="w">Settimana</button>
+      <button type="button" data-m="m">Mese intero</button>
+    </div>
+    <div class="calwrap" id="calwrap"><table class="cal" id="cal"></table></div>
+    <p class="calhint">Scrivi ore e minuti nelle caselle. Allenamento, Sveglia e Pulizia: tocca per spuntare. J e S: un tocco è pulito (verde), due tocchi sgarro (rosso), tre la svuoti.</p>
   </section>
 
   <section aria-label="Mese">
@@ -333,64 +374,82 @@ function weekStats(h, from, to){
   return {sum, cnt, bad};
 }
 
-function renderDay(){
-  const H = habits(), t = today(), diff = Math.round((t - sel) / 864e5);
-  $('dayTitle').textContent = diff === 0 ? 'Oggi' : diff === 1 ? 'Ieri' : GG[(sel.getDay()+6)%7] + ' ' + sel.getDate() + ' ' + MESI[sel.getMonth()].slice(0,3);
-  $('eyebrow').textContent = diff <= 1 ? GG[(sel.getDay()+6)%7] + ' ' + sel.getDate() + ' ' + MESI[sel.getMonth()] + ' ' + sel.getFullYear() : 'Habit tracker · ' + sel.getFullYear();
-  $('next').disabled = diff <= 0;
-  const st = H.map(h => status(h, sel)), ok = st.filter(s => s === 'ok').length, bad = st.filter(s => s === 'bad').length;
-  $('boxes').innerHTML = st.map(s => '<span class="box' + (s === 'ok' ? ' on' : s === 'bad' ? ' bad' : '') + '"></span>').join('') +
-    '<span class="bl"><b>' + ok + ' su ' + H.length + '</b> fatte' + (bad ? ', ' + bad + (bad === 1 ? ' sgarro' : ' sgarri') : '') + '</span>';
-  const mon = monday(sel), sun = addDays(mon, 6);
-  $('habits').innerHTML = H.map((h, i) => {
-    const v = val(sel, h.riga), s = st[i], w = weekStats(h, mon, sun);
-    let ctl = '', hint = '';
-    if (h.k === 'num') {
-      const n = numv(v), step = h.unit === 'h' ? 0.5 : 5;
-      const quick = h.unit === 'h' ? [2, 4, 6, 8] : h.daily ? [10, 20, 30] : [15, 30, 45, 60];
-      ctl = '<div class="ctl"><div class="kgbox"><button type="button" data-step="-' + step + '" data-r="' + h.riga + '" aria-label="Meno">−</button>' +
-        '<input type="text" inputmode="decimal" data-in="' + h.riga + '" value="' + (v === null || v === '' ? '' : fnum(n)) + '" placeholder="0" aria-label="' + esc(h.label) + '"><span>' + h.unit + '</span>' +
-        '<button type="button" data-step="' + step + '" data-r="' + h.riga + '" aria-label="Più">+</button></div>' +
-        '<div class="quick">' + quick.map(q => '<button type="button" data-set="' + q + '" data-r="' + h.riga + '" class="' + (n === q ? 'on' : '') + '">' + q + '</button>').join('') + '</div></div>';
-      const goal = h.weekly, pct = goal ? Math.min(1, w.sum / goal) : 0;
-      hint = '<div class="mini"><span>Settimana ' + fnum(w.sum) + ' / ' + fnum(goal) + ' ' + h.unit + '</span><div class="track"><div class="fill' + (w.sum >= goal ? ' ok' : '') + '" style="width:' + (pct*100).toFixed(1) + '%"></div></div></div>';
-      return '<li class="hb' + (s === 'ok' ? ' done' : '') + '"><div class="top"><div class="nm">' + esc(h.label) + '<small>' + esc(h.target) + '</small></div></div>' + ctl + hint + '</li>';
+// soglie dei colori, le stesse della formattazione condizionale del foglio
+const DAY_LV = {lavoro: [8, 6, 4], lettura: [30, 20, 15], pianoforte: [45, 30, 20]};
+const WEEK_LV = {lavoro: [48, 42, 25], lettura: [210, 140, 80], pianoforte: [300, 210, 120], allenamento: [5, 4, 2], sveglia: [6, 5, 3], pulizia: [99, 7, 5]};
+const lvKey = h => h.label.toLowerCase().split(/\s+/)[0];
+const level = (v, [a, b, c]) => v >= a ? 'gold' : v >= b ? 'green' : v >= c ? 'orange' : 'red';
+function dayColor(h, d, v){
+  if (h.k === 'check') return isTrue(v) ? 'green' : '';
+  if (h.k === 'vice') return isTrue(v) ? 'sgarro' : state.marks[mk(d, h.riga)] ? 'green' : '';
+  if (v === null || v === '' || typeof v === 'boolean') return '';
+  const n = numv(v), key = lvKey(h);
+  if (key === 'lavoro') { const wd = d.getDay(); if (n < 8 && (wd === 6 && n >= 5 || wd === 0 && n >= 4)) return 'green'; }
+  const lv = DAY_LV[key] || (h.daily ? [h.daily * 4 / 3, h.daily, h.daily * 2 / 3] : [h.weekly / 7 * 1.5, h.weekly / 7, h.weekly / 7 * 2 / 3]);
+  return level(n, lv);
+}
+function weekColor(h, w){
+  const key = lvKey(h);
+  if (h.k === 'vice') { const n = w.bad; if (key === 'j') return n === 0 ? 'gold' : n === 1 ? 'green' : n === 2 ? 'orange' : 'red'; return n === 0 ? 'gold' : n <= h.max ? 'green' : n === h.max + 1 ? 'orange' : 'red'; }
+  const got = h.k === 'num' ? w.sum : w.cnt;
+  const lv = WEEK_LV[key] || (h.k === 'num' ? [h.weekly * 8 / 7, h.weekly, h.weekly * .6] : [h.per + 1, h.per, Math.ceil(h.per / 2)]);
+  return level(got, lv);
+}
+let ui = {mode: 'w'};
+try { const u = JSON.parse(localStorage.getItem('abitudini-ui-v1')); if (u) ui = Object.assign(ui, u); } catch (e) {}
+const saveUi = () => { try { localStorage.setItem('abitudini-ui-v1', JSON.stringify(ui)); } catch (e) {} };
+function period(){
+  if (ui.mode === 'w') { const a = monday(sel); return [a, addDays(a, 6)]; }
+  return [new Date(sel.getFullYear(), sel.getMonth(), 1), new Date(sel.getFullYear(), sel.getMonth() + 1, 0)];
+}
+function renderCal(){
+  const H = habits(), t = today(), [from, to] = period(), wk = ui.mode === 'w';
+  document.querySelectorAll('#mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === ui.mode));
+  const sm = s => s.getDate() + ' ' + MESI[s.getMonth()].slice(0, 3);
+  $('calTitle').textContent = wk ? (iso(monday(t)) === iso(from) ? 'Questa settimana' : sm(from) + ' – ' + sm(to)) : MESI[from.getMonth()][0].toUpperCase() + MESI[from.getMonth()].slice(1);
+  $('eyebrow').textContent = 'Habit tracker · ' + from.getFullYear();
+  $('next').disabled = addDays(to, 1) > t;
+  const days = []; for (let d = new Date(from); d <= to; d = addDays(d, 1)) days.push(new Date(d));
+  let h = (wk ? '<colgroup><col class="nc">' + days.map(() => '<col>').join('') + '<col class="tc"></colgroup>' : '') + '<thead><tr><th class="hn">Abitudine</th>' + days.map(d => '<th class="' + (iso(d) === iso(t) ? 'today ' : '') + (!wk && d.getDay() === 1 && d.getDate() > 1 ? 'mon' : '') + '"><small>' + GG[(d.getDay()+6)%7].slice(0, 2) + '</small>' + d.getDate() + '</th>').join('') +
+    '<th class="tot">' + (wk ? 'Sett.' : 'Mese') + '</th></tr></thead><tbody>';
+  H.forEach(hb => {
+    h += '<tr><th class="hn" scope="row">' + esc(hb.label.replace(/\s*\(.*?\)\s*/g, ' ').trim()) + '<small>' + esc(hb.target) + '</small></th>';
+    days.forEach(d => {
+      const v = val(d, hb.riga), fut = d > t, col = fut ? '' : dayColor(hb, d, v), id = iso(d) + '|' + hb.riga;
+      const cls = 'c' + (col ? ' L-' + col : '') + (fut ? ' fut' : d.getDay() === 0 ? ' sun' : '') + (!wk && d.getDay() === 1 && d.getDate() > 1 ? ' mon' : '');
+      let inner;
+      if (hb.k === 'num') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
+      else {
+        const mark = hb.k === 'check' ? (isTrue(v) ? '✓' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
+        inner = '<button type="button" class="cb" data-c="' + id + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>' + mark + '</button>';
+      }
+      h += '<td class="' + cls + '">' + inner + '</td>';
+    });
+    // totale della settimana (colori come la colonna "Sett. corrente") o del mese (come "Stato")
+    const w = weekStats(hb, from, to);
+    if (wk) {
+      const c = weekColor(hb, w);
+      const txt = hb.k === 'num' ? fnum(w.sum) + '<small>/ ' + fnum(hb.weekly) + ' ' + hb.unit + '</small>' : hb.k === 'check' ? w.cnt + '<small>/ ' + hb.per + '</small>' : w.bad + '<small>max ' + hb.max + '</small>';
+      h += '<td class="tot L-' + c + '">' + txt + '</td>';
+    } else {
+      const n = to.getDate();
+      if (hb.k === 'vice') { const max = Math.round(hb.max * n / 7), over = w.bad > max; h += '<td class="tot L-' + (over ? 'sgarro' : 'green') + '">' + w.bad + '<small>max ' + max + '</small></td>'; }
+      else {
+        const goal = hb.k === 'num' ? (hb.daily ? hb.daily * n : hb.weekly * n / 7) : Math.floor(hb.per * n / 7), got = hb.k === 'num' ? w.sum : w.cnt, p = goal ? got / goal : 0;
+        h += '<td class="tot L-' + (p >= 1 ? 'green' : 'grey') + '">' + Math.round(p * 100) + '%<small>' + fnum(got) + (hb.k === 'num' ? ' ' + hb.unit : '/' + goal) + '</small></td>';
+      }
     }
-    if (h.k === 'check') {
-      ctl = '<button type="button" class="tick" data-tick="' + h.riga + '" aria-pressed="' + isTrue(v) + '" aria-label="' + esc(h.label) + ' fatto">✓</button>';
-      return '<li class="hb' + (s === 'ok' ? ' done' : '') + '"><div class="top"><div class="nm">' + esc(h.label) + '<small>' + esc(h.target) + ' · questa settimana ' + w.cnt + ' su ' + h.per + '</small></div>' + ctl + '</div></li>';
-    }
-    const marked = !!state.marks[mk(sel, h.riga)], okOn = !isTrue(v) && marked, soft = !isTrue(v) && !marked && sel < today();
-    ctl = '<div class="duo"><button type="button" class="ok' + (soft ? ' soft' : '') + '" data-ok="' + h.riga + '" aria-pressed="' + okOn + '"><i>✓</i>Pulito</button>' +
-      '<button type="button" class="ko" data-ko="' + h.riga + '" aria-pressed="' + isTrue(v) + '"><i>✕</i>Sgarro</button></div>';
-    const over = w.bad > h.max;
-    return '<li class="hb' + (s === 'bad' ? ' over' : s === 'ok' ? ' done' : '') + '"><div class="top"><div class="nm">' + esc(h.label) +
-      '<small>' + esc(h.target) + ' a settimana · ' + (w.bad ? w.bad + (w.bad === 1 ? ' sgarro' : ' sgarri') : 'nessuno sgarro') + (over ? ', superato' : '') + '</small></div>' + ctl + '</div></li>';
-  }).join('');
+    h += '</tr>';
+  });
+  h += '</tbody><tfoot><tr><td class="hn">Fatte</td>' + days.map(d => d > t ? '<td></td>' : '<td>' + H.filter(hb => status(hb, d) === 'ok').length + '/' + H.length + '</td>').join('') + '<td></td></tr></tfoot>';
+  const wrap = $('calwrap'), keep = wrap.scrollLeft, same = $('cal').dataset.p === iso(from) + ui.mode;
+  $('cal').innerHTML = h; $('cal').classList.toggle('wk', wk); $('cal').dataset.p = iso(from) + ui.mode;
+  // nel mese intero parte già scrollato su oggi
+  if (same) wrap.scrollLeft = keep;
+  else if (!wk) { const th = $('cal').querySelector('th.today'); wrap.scrollLeft = th ? Math.max(0, th.offsetLeft - 92 - 42 * 3) : 0; }
+  else wrap.scrollLeft = 0;
 }
 
-function renderWeek(){
-  const H = habits(), mon = monday(sel), sun = addDays(mon, 6), t = today();
-  const same = iso(monday(t)) === iso(mon);
-  $('wkTitle').textContent = same ? 'Questa settimana' : mon.getDate() + ' ' + MESI[mon.getMonth()].slice(0,3) + ' – ' + sun.getDate() + ' ' + MESI[sun.getMonth()].slice(0,3);
-  let html = '';
-  for (let i = 0; i < 7; i++) {
-    const d = addDays(mon, i), fut = d > t;
-    const ok = fut ? 0 : H.filter(h => status(h, d) === 'ok').length, p = H.length ? ok / H.length : 0;
-    html += '<button type="button" class="day' + (iso(d) === iso(sel) ? ' sel' : '') + (fut ? ' future' : '') + (p === 1 ? ' full' : '') + '" data-day="' + iso(d) + '"' + (fut ? ' disabled' : '') + '>' +
-      '<span class="dn">' + GG[i] + '</span><span class="dd">' + d.getDate() + '</span><span class="meter"><span style="width:' + (p*100).toFixed(0) + '%"></span></span><span class="pc">' + (fut ? '' : ok + '/' + H.length) + '</span></button>';
-  }
-  $('week').innerHTML = html;
-  $('wkBars').innerHTML = H.map(h => {
-    const w = weekStats(h, mon, sun);
-    if (h.k === 'vice') {
-      const over = w.bad > h.max;
-      return bar(h.label, h.max ? Math.min(1, w.bad / (h.max + 1)) : (w.bad ? 1 : 0), over ? 'bad' : '', '<b class="' + (over ? 'bad' : 'ok') + '">' + w.bad + '</b> / max ' + h.max);
-    }
-    const got = h.k === 'num' ? w.sum : w.cnt, goal = h.k === 'num' ? h.weekly : h.per;
-    return bar(h.label, goal ? Math.min(1, got / goal) : 0, got >= goal ? 'ok' : '', '<b' + (got >= goal ? ' class="ok"' : '') + '>' + fnum(got) + '</b> / ' + fnum(goal) + (h.k === 'num' ? ' ' + h.unit : ''));
-  }).join('');
-}
 const bar = (n, p, cls, v) => '<div class="brow"><span class="n">' + esc(n) + '</span><div class="track"><div class="fill ' + cls + '" style="width:' + (p*100).toFixed(1) + '%"></div></div><span class="v">' + v + '</span></div>';
 
 function renderMonth(){
@@ -442,31 +501,31 @@ function renderAlbo(){
   $('albo').innerHTML = html;
 }
 
-function render(){ renderDay(); renderWeek(); renderMonth(); renderAlbo(); setSync(); }
+function render(){ if (document.activeElement && document.activeElement.matches('.cal input')) { renderMonth(); renderAlbo(); setSync(); return; } renderCal(); renderMonth(); renderAlbo(); setSync(); }
 
 // tocchi
-$('habits').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  const H = habits();
-  if (b.dataset.tick) { const r = +b.dataset.tick; setVal(sel, r, !isTrue(val(sel, r))); return; }
-  if (b.dataset.ko) { const r = +b.dataset.ko; delete state.marks[mk(sel, r)]; setVal(sel, r, !isTrue(val(sel, r))); return; }
-  if (b.dataset.ok) {
-    const r = +b.dataset.ok, k = mk(sel, r), was = !!state.marks[k] && !isTrue(val(sel, r));
-    if (was) delete state.marks[k]; else state.marks[k] = 1;
-    save(); setVal(sel, r, false); return;
-  }
-  if (b.dataset.step) { const r = +b.dataset.r, n = Math.max(0, Math.round((numv(val(sel, r)) + parseFloat(b.dataset.step)) * 10) / 10); setVal(sel, r, n || null); return; }
-  if (b.dataset.set) { const r = +b.dataset.r, q = parseFloat(b.dataset.set); setVal(sel, r, numv(val(sel, r)) === q ? null : q); return; }
+const cellOf = el => { const [ds, r] = el.dataset.c.split('|'); return [parse(ds), +r]; };
+$('cal').addEventListener('click', e => {
+  const b = e.target.closest('button.cb'); if (!b || b.disabled) return;
+  const [d, r] = cellOf(b), hb = habits().find(x => x.riga === r); if (!hb) return;
+  if (hb.k === 'check') { setVal(d, r, !isTrue(val(d, r))); return; }
+  // J e S: vuoto → pulito → sgarro → vuoto
+  const k = mk(d, r);
+  if (isTrue(val(d, r))) { delete state.marks[k]; save(); setVal(d, r, false); }
+  else if (state.marks[k]) { delete state.marks[k]; save(); setVal(d, r, true); }
+  else { state.marks[k] = 1; save(); setVal(d, r, false); }
 });
-$('habits').addEventListener('change', e => {
-  const i = e.target.closest('input[data-in]'); if (!i) return;
-  const raw = i.value.trim().replace(',', '.'), n = parseFloat(raw);
-  setVal(sel, +i.dataset.in, raw === '' || isNaN(n) || n <= 0 ? null : Math.round(n * 10) / 10);
+$('cal').addEventListener('change', e => {
+  const i = e.target.closest('input[data-c]'); if (!i) return;
+  const [d, r] = cellOf(i), raw = i.value.trim().replace(',', '.'), n = parseFloat(raw);
+  i.blur();
+  setVal(d, r, raw === '' || isNaN(n) || n < 0 ? null : Math.round(n * 10) / 10);
 });
-$('habits').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) e.target.blur(); });
-$('week').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) { sel = parse(b.dataset.day); render(); } });
-$('prev').addEventListener('click', () => { sel = addDays(sel, -1); render(); });
-$('next').addEventListener('click', () => { if (sel < today()) { sel = addDays(sel, 1); render(); } });
+$('cal').addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('.cal input')) renderCal(); }, 0));
+$('cal').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) e.target.blur(); });
+$('mode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; ui.mode = b.dataset.m; saveUi(); render(); });
+$('prev').addEventListener('click', () => { sel = ui.mode === 'w' ? addDays(monday(sel), -7) : new Date(sel.getFullYear(), sel.getMonth() - 1, 1); render(); });
+$('next').addEventListener('click', () => { if ($('next').disabled) return; sel = ui.mode === 'w' ? addDays(monday(sel), 7) : new Date(sel.getFullYear(), sel.getMonth() + 1, 1); if (sel > today()) sel = today(); render(); });
 
 $('cfgUrl').value = cfg.url; $('cfgKey').value = cfg.k;
 $('cfgSave').addEventListener('click', () => {
@@ -499,7 +558,8 @@ function fake(){
   }
   return {anno: y, mesi, albo: [], ora: null};
 }
-function enterDemo(){ if (demo) return; realState = state; state = {data: fake(), queue: [], marks: {}}; demo = true; $('demoBar').hidden = false; sel = today(); window.scrollTo(0, 0); render(); }
+function enterDemo(){ if (demo) return; realState = state; state = {data: fake(), queue: [], marks: {}};
+  state.data.mesi.forEach((m, mi) => m.filter(h => h.riga === 12 || h.riga === 13).forEach(h => h.v.forEach((v, i) => { if (v === false) state.marks[iso(new Date(state.data.anno, mi, i + 1)) + '|' + h.riga] = 1; }))); demo = true; $('demoBar').hidden = false; sel = today(); window.scrollTo(0, 0); render(); }
 function exitDemo(){ if (!demo) return; state = realState; demo = false; $('demoBar').hidden = true; render(); }
 $('demoGo').addEventListener('click', enterDemo);
 $('demoExit').addEventListener('click', exitDemo);
