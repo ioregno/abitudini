@@ -153,6 +153,30 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .brow .v b{color:var(--ink);font-weight:600}
 .brow .v b.bad{color:var(--bad)}
 .brow .v b.ok{color:var(--ok)}
+.avg{list-style:none;margin:12px 0 0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.avg li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px;align-items:baseline;padding:10px 14px;border-bottom:1px solid var(--line)}
+.avg li:last-child{border-bottom:0}
+.avg .n{font-weight:600;font-size:14px}
+.avg .w{font:700 20px/1 var(--display);text-align:right;font-variant-numeric:tabular-nums}
+.avg .w small,.avg .y small{font:500 11px/1 var(--body);color:var(--muted);margin-left:3px}
+.avg .y{font:700 16px/1 var(--display);color:var(--muted);text-align:right;min-width:86px;font-variant-numeric:tabular-nums}
+.avg .y b{color:var(--ink)}
+.avg li.hd{padding:8px 14px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.avg li.hd span{text-align:right}
+/* resoconto settimane (foglio dal basso) */
+dialog{border:0;padding:0;margin:auto auto 0;width:100%;max-width:480px;max-height:85vh;border-radius:20px 20px 0 0;background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.sheet{padding:10px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;overflow:auto;max-height:85vh}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 4px}
+.sheet h3{font:700 28px/1 var(--display);margin:0}
+.sheet .sub{margin:0}
+.wl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.wl li{display:grid;grid-template-columns:92px minmax(0,1fr) 72px;gap:10px;align-items:center;font-size:13px}
+.wl .wk{font:700 17px/1 var(--display);font-variant-numeric:tabular-nums}
+.wl .wk small{display:block;font:500 11px/1.3 var(--body);color:var(--muted)}
+.wl .vv{border-radius:8px;padding:7px 6px 5px;text-align:center;font:700 18px/1 var(--display);font-variant-numeric:tabular-nums}
+.wl li.cur .wk{color:var(--g3)}
+.cal td.tot{cursor:pointer}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
 .kpi .num{font-size:28px;line-height:1;display:block}
@@ -209,7 +233,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
   <section aria-label="Mese">
     <div class="eyebrow">Mese</div>
     <h2 id="moTitle"></h2>
-    <div class="kpis" id="kpis"></div>
+    <ul class="avg" id="avg"></ul>
     <div class="bars" id="moBars"></div>
   </section>
 
@@ -229,6 +253,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
   </details>
 </div>
 <div class="toast" id="toast" hidden></div>
+<dialog id="dlgW"><div class="sheet" id="sheetW"></div></dialog>
 
 <script>
 (function(){
@@ -384,7 +409,7 @@ function dayColor(h, d, v){
   if (h.k === 'vice') return isTrue(v) ? 'sgarro' : state.marks[mk(d, h.riga)] ? 'green' : '';
   if (v === null || v === '' || typeof v === 'boolean') return '';
   const n = numv(v), key = lvKey(h);
-  if (key === 'lavoro') { const wd = d.getDay(); if (n < 8 && (wd === 6 && n >= 5 || wd === 0 && n >= 4)) return 'green'; }
+  if (key === 'lavoro') { const wd = d.getDay(); if (wd === 0 && n >= 6) return 'gold'; if (n < 8 && (wd === 6 && n >= 5 || wd === 0 && n >= 4)) return 'green'; }
   const lv = DAY_LV[key] || (h.daily ? [h.daily * 4 / 3, h.daily, h.daily * 2 / 3] : [h.weekly / 7 * 1.5, h.weekly / 7, h.weekly / 7 * 2 / 3]);
   return level(n, lv);
 }
@@ -430,7 +455,7 @@ function renderCal(){
     if (wk) {
       const c = weekColor(hb, w);
       const txt = hb.k === 'num' ? fnum(w.sum) + '<small>/ ' + fnum(hb.weekly) + ' ' + hb.unit + '</small>' : hb.k === 'check' ? w.cnt + '<small>/ ' + hb.per + '</small>' : w.bad + '<small>max ' + hb.max + '</small>';
-      h += '<td class="tot L-' + c + '">' + txt + '</td>';
+      h += '<td class="tot L-' + c + '" data-hist="' + hb.riga + '" role="button" tabindex="0" aria-label="Resoconto settimane ' + esc(hb.label) + '">' + txt + '</td>';
     } else {
       const n = to.getDate();
       if (hb.k === 'vice') { const max = Math.round(hb.max * n / 7), over = w.bad > max; h += '<td class="tot L-' + (over ? 'sgarro' : 'green') + '">' + w.bad + '<small>max ' + max + '</small></td>'; }
@@ -456,19 +481,14 @@ function renderMonth(){
   const H = habits(), y = sel.getFullYear(), m = sel.getMonth(), days = dim(y, m), t = today();
   $('moTitle').textContent = MESI[m][0].toUpperCase() + MESI[m].slice(1) + ' ' + y;
   const first = new Date(y, m, 1), last = new Date(y, m, days), upTo = last < t ? last : t;
-  let perfect = 0, tracked = 0, sumP = 0;
-  for (let d = new Date(first); d <= upTo; d = addDays(d, 1)) {
-    const any = H.some(h => { const v = val(d, h.riga); return v !== null && v !== '' && v !== false && v !== 'FALSE'; });
-    const ok = H.filter(h => status(h, d) === 'ok').length;
-    if (any) { tracked++; sumP += ok / H.length; if (ok === H.length) perfect++; }
-  }
-  // record di giorni puliti di fila per gli sgarri (come nell'Albo d'Oro)
-  const vices = H.filter(h => h.k === 'vice');
-  const streak = h => { let n = 0; for (let d = addDays(t, -1); d >= new Date(y, 0, 1); d = addDays(d, -1)) { if (isTrue(val(d, h.riga))) break; n++; } return n; };
-  $('kpis').innerHTML = '<div class="kpi"><span class="num">' + tracked + '</span><small>giorni segnati</small></div>' +
-    '<div class="kpi"><span class="num">' + perfect + '</span><small>giorni perfetti</small></div>' +
-    '<div class="kpi"><span class="num">' + (tracked ? Math.round(sumP / tracked * 100) : 0) + '%</span><small>media del giorno</small></div>' +
-    vices.map(h => '<div class="kpi"><span class="num">' + streak(h) + '</span><small>giorni puliti ' + esc(h.label) + ' di fila</small></div>').join('');
+  // media a settimana delle ultime 4 settimane (fino a ieri), e quante sarebbero in un anno a questo ritmo
+  const r1 = addDays(t, -1), r0 = addDays(t, -28), wks = 4;
+  $('avg').innerHTML = '<li class="hd"><span style="text-align:left">Ultime 4 settimane</span><span>a settimana</span><span>in un anno</span></li>' + (wks ? H.map(h => {
+    const w = weekStats(h, r0, r1), got = h.k === 'num' ? w.sum : h.k === 'vice' ? w.bad : w.cnt;
+    const per = got / wks, unit = h.k === 'num' ? h.unit : h.k === 'vice' ? (Math.round(per * 52) === 1 ? 'sgarro' : 'sgarri') : 'volte';
+    const minH = h.k === 'num' && h.unit === 'min', yr = Math.round(per * 52 / (minH ? 60 : 1));
+    return '<li><span class="n">' + esc(h.label.replace(/\s*\(.*?\)\s*/g, ' ').trim()) + '</span><span class="w">' + (minH ? Math.round(per) : fnum(per)) + '<small>' + (h.k === 'num' ? h.unit : h.k === 'vice' ? 'sgarri' : 'volte') + '</small></span><span class="y">→ <b>' + yr + '</b><small>' + (minH ? 'h' : unit) + '</small></span></li>';
+  }).join('') : '<li><span class="n" style="color:var(--muted)">Il mese non è ancora iniziato</span></li>');
   $('moBars').innerHTML = H.map(h => {
     const w = weekStats(h, first, last);
     if (h.k === 'vice') {
@@ -504,8 +524,37 @@ function renderAlbo(){
 function render(){ if (document.activeElement && document.activeElement.matches('.cal input')) { renderMonth(); renderAlbo(); setSync(); return; } renderCal(); renderMonth(); renderAlbo(); setSync(); }
 
 // tocchi
+// resoconto: totale di ogni settimana dell'anno, con numero della settimana e mese
+const isoWeek = d => { const x = new Date(d); x.setDate(x.getDate() + 3 - ((x.getDay() + 6) % 7)); const w1 = new Date(x.getFullYear(), 0, 4); return 1 + Math.round(((x - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
+function openHist(riga){
+  const hb = habits().find(x => x.riga === riga); if (!hb) return;
+  const t = today(), y = state.data && state.data.anno || t.getFullYear(), rows = [];
+  let mon = monday(new Date(y, 0, 1)); const curMon = iso(monday(t));
+  for (; mon <= t && mon.getFullYear() <= y; mon = addDays(mon, 7)) {
+    const sun = addDays(mon, 6), w = weekStats(hb, mon, sun), got = hb.k === 'num' ? w.sum : hb.k === 'vice' ? w.bad : w.cnt;
+    const any = (() => { for (let d = new Date(mon); d <= sun; d = addDays(d, 1)) { const v = val(d, hb.riga); if (v !== null && v !== '' && v !== undefined && !(v === false && hb.k !== 'vice')) return true; } return false; })();
+    rows.push({mon, sun, got, w, any, cur: iso(mon) === curMon});
+  }
+  const list = rows.filter(r => r.any || r.cur).reverse();
+  const unit = hb.k === 'num' ? ' ' + hb.unit : '';
+  const best = list.length ? Math.max(...list.map(r => r.got)) : 0;
+  const tot = list.reduce((a, r) => a + r.got, 0), media = list.length ? tot / list.length : 0;
+  const goal = hb.k === 'num' ? fnum(hb.weekly) + unit : hb.k === 'check' ? hb.per : 'max ' + hb.max;
+  $('sheetW').innerHTML = '<div class="grab"></div><div class="eyebrow">Resoconto settimane · ' + y + '</div><h3>' + esc(hb.label) + '</h3>' +
+    '<p class="sub">Obiettivo <b>' + goal + '</b> a settimana · media <b>' + fnum(media) + unit + '</b>' + (hb.k !== 'vice' ? ' · record <b>' + fnum(best) + unit + '</b>' : '') + '</p>' +
+    (list.length ? '<ul class="wl">' + list.map(r => {
+      const m1 = r.mon.getMonth() + 1, m2 = r.sun.getMonth() + 1;
+      return '<li class="' + (r.cur ? 'cur' : '') + '"><span class="wk">S' + isoWeek(r.mon) + ' - ' + m1 + (m2 !== m1 ? '/' + m2 : '') + '<small>' + r.mon.getDate() + ' ' + MESI[r.mon.getMonth()].slice(0, 3) + ' – ' + r.sun.getDate() + ' ' + MESI[r.sun.getMonth()].slice(0, 3) + '</small></span>' +
+        '<div class="track"><div class="fill ' + (hb.k === 'vice' ? (r.got > hb.max ? 'bad' : 'ok') : '') + '" style="width:' + (best ? r.got / best * 100 : 0).toFixed(1) + '%"></div></div>' +
+        '<span class="vv L-' + weekColor(hb, r.w) + '">' + fnum(r.got) + '</span></li>';
+    }).join('') + '</ul>' : '<div class="empty">Ancora nessuna settimana segnata.</div>') +
+    '<button type="button" class="ghost" id="closeW">Chiudi</button>';
+  $('dlgW').showModal();
+}
+$('dlgW').addEventListener('click', e => { if (e.target.id === 'closeW' || e.target === $('dlgW')) $('dlgW').close(); });
 const cellOf = el => { const [ds, r] = el.dataset.c.split('|'); return [parse(ds), +r]; };
 $('cal').addEventListener('click', e => {
+  const th = e.target.closest('[data-hist]'); if (th) { openHist(+th.dataset.hist); return; }
   const b = e.target.closest('button.cb'); if (!b || b.disabled) return;
   const [d, r] = cellOf(b), hb = habits().find(x => x.riga === r); if (!hb) return;
   if (hb.k === 'check') { setVal(d, r, !isTrue(val(d, r))); return; }
@@ -522,7 +571,7 @@ $('cal').addEventListener('change', e => {
   setVal(d, r, raw === '' || isNaN(n) || n < 0 ? null : Math.round(n * 10) / 10);
 });
 $('cal').addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('.cal input')) renderCal(); }, 0));
-$('cal').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) e.target.blur(); });
+$('cal').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset.hist) { openHist(+e.target.dataset.hist); return; } if (e.key === 'Enter' && e.target.matches('input')) e.target.blur(); });
 $('mode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; ui.mode = b.dataset.m; saveUi(); render(); });
 $('prev').addEventListener('click', () => { sel = ui.mode === 'w' ? addDays(monday(sel), -7) : new Date(sel.getFullYear(), sel.getMonth() - 1, 1); render(); });
 $('next').addEventListener('click', () => { if ($('next').disabled) return; sel = ui.mode === 'w' ? addDays(monday(sel), 7) : new Date(sel.getFullYear(), sel.getMonth() + 1, 1); if (sel > today()) sel = today(); render(); });
