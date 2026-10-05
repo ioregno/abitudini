@@ -276,6 +276,7 @@ const BASE = [
   {riga: 13, nome: 'S', target: 'Max 2'},
   {riga: 14, nome: 'Pulizia mattutina (15 min)', target: '7 su 7'}
 ];
+const ORDER = ['lavoro', 'lettura', 'pianoforte', 'sveglia', 'ordine', 'allenamento', 'j', 's', 'alimentazione', 'peso'];
 // abitudini aggiunte dall'app nelle righe libere del foglio (lo script scrive il nome alla prima casella)
 const EXTRA = [
   {nome: 'Peso', target: 'lun e ven'},
@@ -332,7 +333,9 @@ function habits(){
     let r = 15; while (H.some(h => h.riga === r) && r < 21) r++;
     H.push(Object.assign({riga: r, nome: x.nome, target: x.target, extra: true}, kind(x)));
   });
-  return H;
+  // ordine scelto da giulio (solo nell'app, il foglio resta com'è); le abitudini non in lista vanno in fondo
+  const pos = h => { const i = ORDER.indexOf(h.label.toLowerCase().split(/\s+/)[0]); return i < 0 ? 99 : i; };
+  return H.sort((a, b) => pos(a) - pos(b) || a.riga - b.riga);
 }
 const yearOK = d => !state.data || !state.data.anno || d.getFullYear() === state.data.anno;
 function val(d, riga){
