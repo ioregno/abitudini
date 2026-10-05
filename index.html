@@ -227,7 +227,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
       <button type="button" data-m="m">Mese intero</button>
     </div>
     <div class="calwrap" id="calwrap"><table class="cal" id="cal"></table></div>
-    <p class="calhint">Scrivi ore e minuti nelle caselle. Allenamento, Sveglia e Pulizia: tocca per spuntare. J e S: un tocco è pulito (verde), due tocchi sgarro (rosso), tre la svuoti.</p>
+    <p class="calhint">Scrivi ore e minuti nelle caselle. Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due tocchi ✕ rosso, tre la svuoti.</p>
   </section>
 
   <section aria-label="Mese">
@@ -296,9 +296,12 @@ sel = today();
 function kind(h){
   const t = h.target.toLowerCase().replace(',', '.'), n = h.nome.toLowerCase();
   let m;
-  const label = h.nome.replace(/\s*\((ore|minuti)\)\s*/i, '').trim();
+  let label = h.nome.replace(/\s*\((ore|minuti)\)\s*/i, '').trim();
+  if (/^pulizia/i.test(label)) label = 'Ordine';
+  // Sveglia e Ordine: ✓ fatto o ✕ non fatto, come J e S
+  const tri = /^(sveglia|ordine)/i.test(label);
   if ((m = t.match(/max\s*(\d+)/))) return {label, k: 'vice', max: +m[1]};
-  if ((m = t.match(/(\d+)\s*su\s*(\d+)/))) return {label, k: 'check', per: +m[1]};
+  if ((m = t.match(/(\d+)\s*su\s*(\d+)/))) return {label, k: 'check', per: +m[1], tri};
   const unit = /\bh\b|ore|\dh/.test(t) || /\(ore\)/.test(n) ? 'h' : 'min';
   const isNum = /(\d+(\.\d+)?)\s*(h|min)/.test(t) || /\((ore|minuti)\)/.test(n);
   if (isNum) {
@@ -401,11 +404,11 @@ function weekStats(h, from, to){
 
 // soglie dei colori, le stesse della formattazione condizionale del foglio
 const DAY_LV = {lavoro: [8, 6, 4], lettura: [30, 20, 15], pianoforte: [45, 30, 20]};
-const WEEK_LV = {lavoro: [48, 42, 25], lettura: [210, 140, 80], pianoforte: [300, 210, 120], allenamento: [5, 4, 2], sveglia: [6, 5, 3], pulizia: [99, 7, 5]};
+const WEEK_LV = {lavoro: [48, 42, 25], lettura: [210, 140, 80], pianoforte: [300, 210, 120], allenamento: [5, 4, 2], sveglia: [6, 5, 3], pulizia: [99, 7, 5], ordine: [99, 7, 5]};
 const lvKey = h => h.label.toLowerCase().split(/\s+/)[0];
 const level = (v, [a, b, c]) => v >= a ? 'gold' : v >= b ? 'green' : v >= c ? 'orange' : 'red';
 function dayColor(h, d, v){
-  if (h.k === 'check') return isTrue(v) ? 'green' : '';
+  if (h.k === 'check') return isTrue(v) ? 'green' : h.tri && state.marks['x' + mk(d, h.riga)] ? 'sgarro' : '';
   if (h.k === 'vice') return isTrue(v) ? 'sgarro' : state.marks[mk(d, h.riga)] ? 'green' : '';
   if (v === null || v === '' || typeof v === 'boolean') return '';
   const n = numv(v), key = lvKey(h);
@@ -445,7 +448,7 @@ function renderCal(){
       let inner;
       if (hb.k === 'num') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
       else {
-        const mark = hb.k === 'check' ? (isTrue(v) ? '✓' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
+        const mark = hb.k === 'check' ? (isTrue(v) ? '✓' : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
         inner = '<button type="button" class="cb" data-c="' + id + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>' + mark + '</button>';
       }
       h += '<td class="' + cls + '">' + inner + '</td>';
@@ -557,6 +560,14 @@ $('cal').addEventListener('click', e => {
   const th = e.target.closest('[data-hist]'); if (th) { openHist(+th.dataset.hist); return; }
   const b = e.target.closest('button.cb'); if (!b || b.disabled) return;
   const [d, r] = cellOf(b), hb = habits().find(x => x.riga === r); if (!hb) return;
+  if (hb.k === 'check' && hb.tri) {
+    // Sveglia e Ordine: vuoto → fatto (✓) → non fatto (✕) → vuoto
+    const x = 'x' + mk(d, r);
+    if (isTrue(val(d, r))) { state.marks[x] = 1; save(); setVal(d, r, false); }
+    else if (state.marks[x]) { delete state.marks[x]; save(); render(); }
+    else setVal(d, r, true);
+    return;
+  }
   if (hb.k === 'check') { setVal(d, r, !isTrue(val(d, r))); return; }
   // J e S: vuoto → pulito → sgarro → vuoto
   const k = mk(d, r);
