@@ -32,7 +32,7 @@ function leggiAnno() {
       nome: String(r[0] || '').trim(),
       target: String(r[1] || '').trim(),
       v: r.slice(3).map(x => x === '' ? null : x)
-    })).filter(h => h.nome);
+    })).filter(h => h.nome || h.v.some(x => x !== null && x !== false));
   });
   let albo = [];
   const sa = ss.getSheetByName(ALBO);
@@ -47,7 +47,10 @@ function scrivi(p) {
   const lock = LockService.getDocumentLock();
   lock.waitLock(10000);
   try {
-    const cella = SpreadsheetApp.getActive().getSheetByName(MESI[m - 1]).getRange(r, 4 + d);
+    const sh = SpreadsheetApp.getActive().getSheetByName(MESI[m - 1]);
+    // abitudine nuova dall'app (es. Peso, Alimentazione): scrive nome e target se la riga è vuota
+    if (p.n && !sh.getRange(r, 2).getValue()) sh.getRange(r, 2, 1, 2).setValues([[p.n, p.tg || '']]);
+    const cella = sh.getRange(r, 4 + d);
     const v = p.v;
     if (v === 'true' || v === 'false') cella.setValue(v === 'true');
     else if (v === '' || v === undefined) cella.clearContent();

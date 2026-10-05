@@ -1,5 +1,5 @@
 <!doctype html><html lang="it"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Abitudini">
 <meta name="theme-color" content="#EDEFEB" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0F1113" media="(prefers-color-scheme: dark)">
@@ -112,6 +112,7 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .cal thead .hn{background:#1B5E1F;color:#fff;z-index:3}
 .cal td.c{width:42px;min-width:42px;height:42px}
 .cal td.sun{background:#FFF5D0}
+.cal td.na{background:var(--sunk);background-image:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--line) 60%,transparent) 6px 7px)}
 .cal td.fut{background:var(--sunk);opacity:.55}
 .cal td.mon,.cal th.mon{border-left:2px solid var(--muted)}
 .cal input{width:42px;height:42px;border:0;background:transparent;text-align:center;font:700 16px/1 var(--display);color:inherit;padding:0;font-variant-numeric:tabular-nums;border-radius:0}
@@ -133,12 +134,14 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .L-grey{background:#F2F2F2!important;color:#666}
 /* settimana: tutto dentro lo schermo senza scorrere */
 .cal.wk{width:100%;table-layout:fixed}
-.cal.wk .hn{min-width:0;max-width:none;width:76px;padding:0 5px;font-size:11.5px;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}
+.cal.wk .hn{min-width:0;max-width:none;width:90px;padding:0 5px;font-size:11px;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
 .cal.wk thead th{min-width:0}
 .cal.wk td.c{width:auto;min-width:0}
 .cal.wk input,.cal.wk button.cb{width:100%}
 .cal.wk .tot{width:52px;min-width:0;padding:0 2px;font-size:13px}
-.cal.wk col.tc{width:52px}.cal.wk col.nc{width:76px}
+.cal.wk col.tc{width:50px}.cal.wk col.nc{width:90px}
+.cal.wk input{font-size:14px}
+.cal.wk .tot{font-size:12.5px}
 .calhint{font-size:12.5px;color:var(--muted);margin:8px 2px 0}
 
 /* barre */
@@ -227,7 +230,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
       <button type="button" data-m="m">Mese intero</button>
     </div>
     <div class="calwrap" id="calwrap"><table class="cal" id="cal"></table></div>
-    <p class="calhint">Scrivi ore e minuti nelle caselle. Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due tocchi ✕ rosso, tre la svuoti.</p>
+    <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle. Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro la svuoti.</p>
   </section>
 
   <section aria-label="Mese">
@@ -273,11 +276,16 @@ const BASE = [
   {riga: 13, nome: 'S', target: 'Max 2'},
   {riga: 14, nome: 'Pulizia mattutina (15 min)', target: '7 su 7'}
 ];
+// abitudini aggiunte dall'app nelle righe libere del foglio (lo script scrive il nome alla prima casella)
+const EXTRA = [
+  {nome: 'Peso', target: 'lun e ven'},
+  {nome: 'Alimentazione', target: 'ogni giorno'}
+];
 
 // stato: data = copia del foglio, queue = modifiche da mandare, marks = giorni segnati "pulito"
-let state = {data: null, queue: [], marks: {}};
+let state = {data: null, queue: [], marks: {}, extra: {}};
 let cfg = {url: '', k: ''};
-try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) state = {data: s.data || null, queue: s.queue || [], marks: s.marks || {}}; } catch (e) {}
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) state = {data: s.data || null, queue: s.queue || [], marks: s.marks || {}, extra: s.extra || {}}; } catch (e) {}
 try { const c = JSON.parse(localStorage.getItem(CFG)); if (c) cfg = Object.assign(cfg, c); } catch (e) {}
 let demo = false, realState = null, sel = null, busy = false, flushT = null, lastErr = '';
 const save = () => { if (demo) return; try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -296,6 +304,8 @@ sel = today();
 function kind(h){
   const t = h.target.toLowerCase().replace(',', '.'), n = h.nome.toLowerCase();
   let m;
+  if (/^peso/i.test(h.nome)) return {label: 'Peso', k: 'weight', unit: 'kg', days: [1, 5]};
+  if (/^alimentazione/i.test(h.nome)) return {label: 'Alimentazione', k: 'food'};
   let label = h.nome.replace(/\s*\((ore|minuti)\)\s*/i, '').trim();
   if (/^pulizia/i.test(label)) label = 'Ordine';
   // Sveglia e Ordine: ✓ fatto o ✕ non fatto, come J e S
@@ -314,7 +324,15 @@ function kind(h){
 function habits(){
   const D = state.data; let list = null;
   if (D && D.mesi) { const cur = D.mesi[sel.getMonth()]; list = cur && cur.length ? cur : D.mesi.filter(Boolean).find(m => m.length); }
-  return (list || BASE).map(h => Object.assign({riga: h.riga, nome: h.nome, target: h.target}, kind(h)));
+  const H = (list || BASE).filter(h => h.nome).map(h => Object.assign({riga: h.riga, nome: h.nome, target: h.target}, kind(h)));
+  // Peso e Alimentazione: se il foglio non le ha ancora, vanno nella prima riga libera dalla 15
+  EXTRA.forEach(x => {
+    const found = H.find(h => h.nome.toLowerCase().startsWith(x.nome.toLowerCase()));
+    if (found) { found.extra = true; return; }
+    let r = 15; while (H.some(h => h.riga === r) && r < 21) r++;
+    H.push(Object.assign({riga: r, nome: x.nome, target: x.target, extra: true}, kind(x)));
+  });
+  return H;
 }
 const yearOK = d => !state.data || !state.data.anno || d.getFullYear() === state.data.anno;
 function val(d, riga){
@@ -341,7 +359,9 @@ function setVal(d, riga, v){
   if (!yearOK(d)) { toast('Il foglio è del ' + state.data.anno + ': questo giorno non ha una cella'); return; }
   putLocal(d, riga, v);
   if (!demo) {
+    const hb = habits().find(x => x.riga === riga);
     const q = {m: d.getMonth()+1, d: d.getDate(), r: riga, v: v === null ? '' : String(v)};
+    if (hb && hb.extra) { q.n = hb.nome; q.tg = hb.target; state.extra[mk(d, riga)] = v; }
     state.queue = state.queue.filter(x => !(x.m === q.m && x.d === q.d && x.r === q.r)).concat(q);
     save(); clearTimeout(flushT); flushT = setTimeout(flush, 700);
   }
@@ -354,7 +374,7 @@ async function flush(){
   try {
     while (state.queue.length) {
       const q = state.queue[0];
-      const r = await fetch(api({a: 'set', m: q.m, d: q.d, r: q.r, v: q.v})).then(x => x.json());
+      const r = await fetch(api(Object.assign({a: 'set', m: q.m, d: q.d, r: q.r, v: q.v}, q.n ? {n: q.n, tg: q.tg} : {}))).then(x => x.json());
       if (!r.ok) { lastErr = r.errore === 'chiave' ? 'chiave sbagliata' : 'il foglio ha rifiutato la modifica'; if (r.errore === 'cella' || r.errore === 'valore') { state.queue.shift(); save(); continue; } break; }
       state.queue.shift(); lastErr = ''; save();
     }
@@ -370,6 +390,8 @@ async function load(quiet){
     state.data = {anno: r.anno, mesi: r.mesi, albo: r.albo || [], ora: r.ora};
     // le modifiche non ancora arrivate al foglio restano visibili
     state.queue.forEach(q => { const d = new Date(r.anno, q.m-1, q.d); putLocal(d, q.r, q.v === '' ? null : q.v === 'true' ? true : q.v === 'false' ? false : Number(q.v)); });
+    // Peso e Alimentazione restano visibili anche se lo script è la versione vecchia (che non rilegge righe senza nome)
+    Object.keys(state.extra).forEach(k => { const [ds, rr] = k.split('|'), d = parse(ds); if (state.extra[k] !== null && val(d, +rr) === null && d.getFullYear() === r.anno) putLocal(d, +rr, state.extra[k]); });
     lastErr = ''; save(); if (!quiet) toast('Foglio caricato');
   } catch (e) { lastErr = e.message === 'chiave sbagliata' ? e.message : (navigator.onLine ? 'il foglio non risponde' : 'sei offline'); }
   busy = false; render(); flush();
@@ -390,18 +412,25 @@ function status(h, d){
   const v = val(d, h.riga), past = d < today();
   if (h.k === 'num') { const n = numv(v); return h.daily ? (n >= h.daily ? 'ok' : '') : (n > 0 ? 'ok' : ''); }
   if (h.k === 'check') return isTrue(v) ? 'ok' : '';
+  if (h.k === 'weight') return h.days.includes(d.getDay()) ? (numv(v) > 0 ? 'ok' : '') : 'na';
+  if (h.k === 'food') return v === null || v === '' ? '' : numv(v) === 2 ? 'ok' : numv(v) === 0 ? 'bad' : 'mid';
   if (isTrue(v)) return 'bad';
   return state.marks[mk(d, h.riga)] || past ? 'ok' : '';
 }
 function weekStats(h, from, to){
-  let sum = 0, cnt = 0, bad = 0;
+  let sum = 0, cnt = 0, bad = 0, mid = 0;
+  const kg = [];
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
     const v = val(d, h.riga);
-    if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; }
+    if (h.k === 'weight') { if (numv(v) > 0) kg.push(numv(v)); }
+    else if (h.k === 'food') { if (v === null || v === '') continue; const n = numv(v); if (n === 2) cnt++; else if (n === 1) mid++; else bad++; }
+    else if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; }
   }
-  return {sum, cnt, bad};
+  return {sum, cnt, bad, mid, kg, last: kg.length ? kg[kg.length - 1] : null};
 }
 
+function lastKgBefore(h, d){ for (let x = addDays(d, -1), i = 0; i < 120; x = addDays(x, -1), i++) { const n = numv(val(x, h.riga)); if (n > 0) return n; } return null; }
+const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + fnum(Math.abs(v));
 // soglie dei colori, le stesse della formattazione condizionale del foglio
 const DAY_LV = {lavoro: [8, 6, 4], lettura: [30, 20, 15], pianoforte: [45, 30, 20]};
 const WEEK_LV = {lavoro: [48, 42, 25], lettura: [210, 140, 80], pianoforte: [300, 210, 120], allenamento: [5, 4, 2], sveglia: [6, 5, 3], pulizia: [99, 7, 5], ordine: [99, 7, 5]};
@@ -410,6 +439,8 @@ const level = (v, [a, b, c]) => v >= a ? 'gold' : v >= b ? 'green' : v >= c ? 'o
 function dayColor(h, d, v){
   if (h.k === 'check') return isTrue(v) ? 'green' : h.tri && state.marks['x' + mk(d, h.riga)] ? 'sgarro' : '';
   if (h.k === 'vice') return isTrue(v) ? 'sgarro' : state.marks[mk(d, h.riga)] ? 'green' : '';
+  if (h.k === 'food') return v === null || v === '' ? '' : ['sgarro', 'orange', 'green'][numv(v)] || '';
+  if (h.k === 'weight') return '';
   if (v === null || v === '' || typeof v === 'boolean') return '';
   const n = numv(v), key = lvKey(h);
   if (key === 'lavoro') { const wd = d.getDay(); if (wd === 0 && n >= 6) return 'gold'; if (n < 8 && (wd === 6 && n >= 5 || wd === 0 && n >= 4)) return 'green'; }
@@ -419,6 +450,8 @@ function dayColor(h, d, v){
 function weekColor(h, w){
   const key = lvKey(h);
   if (h.k === 'vice') { const n = w.bad; if (key === 'j') return n === 0 ? 'gold' : n === 1 ? 'green' : n === 2 ? 'orange' : 'red'; return n === 0 ? 'gold' : n <= h.max ? 'green' : n === h.max + 1 ? 'orange' : 'red'; }
+  if (h.k === 'weight') return 'grey';
+  if (h.k === 'food') return level(w.cnt, [7, 5, 3]);
   const got = h.k === 'num' ? w.sum : w.cnt;
   const lv = WEEK_LV[key] || (h.k === 'num' ? [h.weekly * 8 / 7, h.weekly, h.weekly * .6] : [h.per + 1, h.per, Math.ceil(h.per / 2)]);
   return level(got, lv);
@@ -446,9 +479,10 @@ function renderCal(){
       const v = val(d, hb.riga), fut = d > t, col = fut ? '' : dayColor(hb, d, v), id = iso(d) + '|' + hb.riga;
       const cls = 'c' + (col ? ' L-' + col : '') + (fut ? ' fut' : d.getDay() === 0 ? ' sun' : '') + (!wk && d.getDay() === 1 && d.getDate() > 1 ? ' mon' : '');
       let inner;
-      if (hb.k === 'num') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
+      if (hb.k === 'weight' && !hb.days.includes(d.getDay())) { h += '<td class="c na"></td>'; return; }
+      if (hb.k === 'num' || hb.k === 'weight') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
       else {
-        const mark = hb.k === 'check' ? (isTrue(v) ? '✓' : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
+        const mark = hb.k === 'food' ? (v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? '✓' : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
         inner = '<button type="button" class="cb" data-c="' + id + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>' + mark + '</button>';
       }
       h += '<td class="' + cls + '">' + inner + '</td>';
@@ -456,12 +490,15 @@ function renderCal(){
     // totale della settimana (colori come la colonna "Sett. corrente") o del mese (come "Stato")
     const w = weekStats(hb, from, to);
     if (wk) {
-      const c = weekColor(hb, w);
-      const txt = hb.k === 'num' ? fnum(w.sum) + '<small>/ ' + fnum(hb.weekly) + ' ' + hb.unit + '</small>' : hb.k === 'check' ? w.cnt + '<small>/ ' + hb.per + '</small>' : w.bad + '<small>max ' + hb.max + '</small>';
+      let c = weekColor(hb, w);
+      if (hb.k === 'weight') { const prev = lastKgBefore(hb, from), dlt = w.last !== null && prev !== null ? w.last - prev : null; if (dlt !== null) c = dlt < 0 ? 'green' : dlt > 0 ? 'orange' : 'grey'; }
+      const txt = hb.k === 'weight' ? (w.last !== null ? fnum(w.last) + '<small>' + (lastKgBefore(hb, from) !== null ? sgn(w.last - lastKgBefore(hb, from)) + ' kg' : 'kg') + '</small>' : '–') : hb.k === 'food' ? w.cnt + '<small>✓ · ' + w.bad + ' ✕</small>' : hb.k === 'num' ? fnum(w.sum) + '<small>/ ' + fnum(hb.weekly) + ' ' + hb.unit + '</small>' : hb.k === 'check' ? w.cnt + '<small>/ ' + hb.per + '</small>' : w.bad + '<small>max ' + hb.max + '</small>';
       h += '<td class="tot L-' + c + '" data-hist="' + hb.riga + '" role="button" tabindex="0" aria-label="Resoconto settimane ' + esc(hb.label) + '">' + txt + '</td>';
     } else {
       const n = to.getDate();
-      if (hb.k === 'vice') { const max = Math.round(hb.max * n / 7), over = w.bad > max; h += '<td class="tot L-' + (over ? 'sgarro' : 'green') + '">' + w.bad + '<small>max ' + max + '</small></td>'; }
+      if (hb.k === 'weight') { const prev = lastKgBefore(hb, from), dlt = w.last !== null && prev !== null ? w.last - prev : null; h += '<td class="tot L-' + (dlt === null ? 'grey' : dlt < 0 ? 'green' : dlt > 0 ? 'orange' : 'grey') + '">' + (w.last !== null ? fnum(w.last) : '–') + '<small>' + (dlt !== null ? sgn(dlt) + ' kg' : 'kg') + '</small></td>'; }
+      else if (hb.k === 'food') { const p = n ? w.cnt / n : 0; h += '<td class="tot L-' + (w.bad > n / 7 * 2 ? 'sgarro' : p >= 5 / 7 ? 'green' : 'grey') + '">' + w.cnt + '<small>✓ · ' + w.bad + ' ✕</small></td>'; }
+      else if (hb.k === 'vice') { const max = Math.round(hb.max * n / 7), over = w.bad > max; h += '<td class="tot L-' + (over ? 'sgarro' : 'green') + '">' + w.bad + '<small>max ' + max + '</small></td>'; }
       else {
         const goal = hb.k === 'num' ? (hb.daily ? hb.daily * n : hb.weekly * n / 7) : Math.floor(hb.per * n / 7), got = hb.k === 'num' ? w.sum : w.cnt, p = goal ? got / goal : 0;
         h += '<td class="tot L-' + (p >= 1 ? 'green' : 'grey') + '">' + Math.round(p * 100) + '%<small>' + fnum(got) + (hb.k === 'num' ? ' ' + hb.unit : '/' + goal) + '</small></td>';
@@ -469,7 +506,7 @@ function renderCal(){
     }
     h += '</tr>';
   });
-  h += '</tbody><tfoot><tr><td class="hn">Fatte</td>' + days.map(d => d > t ? '<td></td>' : '<td>' + H.filter(hb => status(hb, d) === 'ok').length + '/' + H.length + '</td>').join('') + '<td></td></tr></tfoot>';
+  h += '</tbody><tfoot><tr><td class="hn">Fatte</td>' + days.map(d => d > t ? '<td></td>' : '<td>' + H.filter(hb => status(hb, d) === 'ok').length + '/' + H.filter(hb => status(hb, d) !== 'na').length + '</td>').join('') + '<td></td></tr></tfoot>';
   const wrap = $('calwrap'), keep = wrap.scrollLeft, same = $('cal').dataset.p === iso(from) + ui.mode;
   $('cal').innerHTML = h; $('cal').classList.toggle('wk', wk); $('cal').dataset.p = iso(from) + ui.mode;
   // nel mese intero parte già scrollato su oggi
@@ -487,13 +524,22 @@ function renderMonth(){
   // media a settimana delle ultime 4 settimane (fino a ieri), e quante sarebbero in un anno a questo ritmo
   const r1 = addDays(t, -1), r0 = addDays(t, -28), wks = 4;
   $('avg').innerHTML = '<li class="hd"><span style="text-align:left">Ultime 4 settimane</span><span>a settimana</span><span>in un anno</span></li>' + (wks ? H.map(h => {
+    if (h.k === 'weight') {
+      const w = weekStats(h, r0, t);
+      if (w.kg.length < 2) return '<li><span class="n">Peso</span><span class="w">' + (w.last !== null ? fnum(w.last) + '<small>kg</small>' : '–') + '</span><span class="y"><small>servono 2 pesate</small></span></li>';
+      // andamento: differenza tra prima e ultima pesata delle 4 settimane
+      const per = (w.kg[w.kg.length - 1] - w.kg[0]) / 4;
+      return '<li><span class="n">Peso</span><span class="w">' + sgn(per) + '<small>kg</small></span><span class="y">→ <b>' + sgn(Math.round(per * 52)) + '</b><small>kg</small></span></li>';
+    }
     const w = weekStats(h, r0, r1), got = h.k === 'num' ? w.sum : h.k === 'vice' ? w.bad : w.cnt;
-    const per = got / wks, unit = h.k === 'num' ? h.unit : h.k === 'vice' ? (Math.round(per * 52) === 1 ? 'sgarro' : 'sgarri') : 'volte';
+    const per = got / wks, unit = h.k === 'num' ? h.unit : h.k === 'food' ? 'giorni ✓' : h.k === 'vice' ? (Math.round(per * 52) === 1 ? 'sgarro' : 'sgarri') : 'volte';
     const minH = h.k === 'num' && h.unit === 'min', yr = Math.round(per * 52 / (minH ? 60 : 1));
-    return '<li><span class="n">' + esc(h.label.replace(/\s*\(.*?\)\s*/g, ' ').trim()) + '</span><span class="w">' + (minH ? Math.round(per) : fnum(per)) + '<small>' + (h.k === 'num' ? h.unit : h.k === 'vice' ? 'sgarri' : 'volte') + '</small></span><span class="y">→ <b>' + yr + '</b><small>' + (minH ? 'h' : unit) + '</small></span></li>';
+    return '<li><span class="n">' + esc(h.label.replace(/\s*\(.*?\)\s*/g, ' ').trim()) + '</span><span class="w">' + (minH ? Math.round(per) : fnum(per)) + '<small>' + (h.k === 'num' ? h.unit : h.k === 'food' ? 'giorni ✓' : h.k === 'vice' ? 'sgarri' : 'volte') + '</small></span><span class="y">→ <b>' + yr + '</b><small>' + (minH ? 'h' : unit) + '</small></span></li>';
   }).join('') : '<li><span class="n" style="color:var(--muted)">Il mese non è ancora iniziato</span></li>');
   $('moBars').innerHTML = H.map(h => {
     const w = weekStats(h, first, last);
+    if (h.k === 'weight') { const prev = lastKgBefore(h, first), dlt = w.last !== null && prev !== null ? w.last - prev : null; return bar(h.label, 0, '', w.last !== null ? '<b>' + fnum(w.last) + ' kg</b>' + (dlt !== null ? ' · ' + sgn(dlt) : '') : '–'); }
+    if (h.k === 'food') { const n = upTo >= first ? Math.round((addDays(upTo, 1) - first) / 864e5) : 0, p = n ? w.cnt / n : 0; return bar(h.label, p, w.bad > n / 7 * 2 ? 'bad' : p >= 5 / 7 ? 'ok' : '', '<b>' + w.cnt + '</b> ✓ · ' + w.mid + ' ~ · ' + w.bad + ' ✕'); }
     if (h.k === 'vice') {
       const max = Math.round(h.max * days / 7), over = w.bad > max;
       return bar(h.label, max ? Math.min(1, w.bad / (max + 1)) : 0, over ? 'bad' : '', '<b class="' + (over ? 'bad' : 'ok') + '">' + w.bad + '</b> / max ' + max);
@@ -534,21 +580,21 @@ function openHist(riga){
   const t = today(), y = state.data && state.data.anno || t.getFullYear(), rows = [];
   let mon = monday(new Date(y, 0, 1)); const curMon = iso(monday(t));
   for (; mon <= t && mon.getFullYear() <= y; mon = addDays(mon, 7)) {
-    const sun = addDays(mon, 6), w = weekStats(hb, mon, sun), got = hb.k === 'num' ? w.sum : hb.k === 'vice' ? w.bad : w.cnt;
+    const sun = addDays(mon, 6), w = weekStats(hb, mon, sun), got = hb.k === 'weight' ? (w.last || 0) : hb.k === 'num' ? w.sum : hb.k === 'vice' ? w.bad : w.cnt;
     const any = (() => { for (let d = new Date(mon); d <= sun; d = addDays(d, 1)) { const v = val(d, hb.riga); if (v !== null && v !== '' && v !== undefined && !(v === false && hb.k !== 'vice')) return true; } return false; })();
     rows.push({mon, sun, got, w, any, cur: iso(mon) === curMon});
   }
-  const list = rows.filter(r => r.any || r.cur).reverse();
-  const unit = hb.k === 'num' ? ' ' + hb.unit : '';
-  const best = list.length ? Math.max(...list.map(r => r.got)) : 0;
+  const list = rows.filter(r => (r.any || r.cur) && !(hb.k === 'weight' && !r.got)).reverse();
+  const unit = hb.k === 'num' || hb.k === 'weight' ? ' ' + hb.unit : '';
+  const best = list.length ? (hb.k === 'weight' ? Math.min(...list.map(r => r.got)) : Math.max(...list.map(r => r.got))) : 0;
   const tot = list.reduce((a, r) => a + r.got, 0), media = list.length ? tot / list.length : 0;
-  const goal = hb.k === 'num' ? fnum(hb.weekly) + unit : hb.k === 'check' ? hb.per : 'max ' + hb.max;
+  const goal = hb.k === 'num' ? fnum(hb.weekly) + unit : hb.k === 'check' ? hb.per : hb.k === 'food' ? '7 giorni ✓' : hb.k === 'weight' ? 'pesata lun e ven' : 'max ' + hb.max;
   $('sheetW').innerHTML = '<div class="grab"></div><div class="eyebrow">Resoconto settimane · ' + y + '</div><h3>' + esc(hb.label) + '</h3>' +
-    '<p class="sub">Obiettivo <b>' + goal + '</b> a settimana · media <b>' + fnum(media) + unit + '</b>' + (hb.k !== 'vice' ? ' · record <b>' + fnum(best) + unit + '</b>' : '') + '</p>' +
+    '<p class="sub">' + (hb.k === 'weight' ? 'Ultima pesata della settimana' : 'Obiettivo <b>' + goal + '</b> a settimana') + ' · media <b>' + fnum(media) + unit + '</b>' + (hb.k !== 'vice' ? ' · ' + (hb.k === 'weight' ? 'minimo' : 'record') + ' <b>' + fnum(best) + unit + '</b>' : '') + '</p>' +
     (list.length ? '<ul class="wl">' + list.map(r => {
       const m1 = r.mon.getMonth() + 1, m2 = r.sun.getMonth() + 1;
       return '<li class="' + (r.cur ? 'cur' : '') + '"><span class="wk">S' + isoWeek(r.mon) + ' - ' + m1 + (m2 !== m1 ? '/' + m2 : '') + '<small>' + r.mon.getDate() + ' ' + MESI[r.mon.getMonth()].slice(0, 3) + ' – ' + r.sun.getDate() + ' ' + MESI[r.sun.getMonth()].slice(0, 3) + '</small></span>' +
-        '<div class="track"><div class="fill ' + (hb.k === 'vice' ? (r.got > hb.max ? 'bad' : 'ok') : '') + '" style="width:' + (best ? r.got / best * 100 : 0).toFixed(1) + '%"></div></div>' +
+        '<div class="track"><div class="fill ' + (hb.k === 'vice' ? (r.got > hb.max ? 'bad' : 'ok') : '') + '" style="width:' + (hb.k === 'weight' ? 100 : best ? r.got / best * 100 : 0).toFixed(1) + '%"></div></div>' +
         '<span class="vv L-' + weekColor(hb, r.w) + '">' + fnum(r.got) + '</span></li>';
     }).join('') + '</ul>' : '<div class="empty">Ancora nessuna settimana segnata.</div>') +
     '<button type="button" class="ghost" id="closeW">Chiudi</button>';
@@ -560,6 +606,12 @@ $('cal').addEventListener('click', e => {
   const th = e.target.closest('[data-hist]'); if (th) { openHist(+th.dataset.hist); return; }
   const b = e.target.closest('button.cb'); if (!b || b.disabled) return;
   const [d, r] = cellOf(b), hb = habits().find(x => x.riga === r); if (!hb) return;
+  if (hb.k === 'food') {
+    // Alimentazione: vuoto → verde → arancione → sgarro → vuoto
+    const v = val(d, r), n = v === null || v === '' ? null : numv(v);
+    setVal(d, r, n === null ? 2 : n === 2 ? 1 : n === 1 ? 0 : null);
+    return;
+  }
   if (hb.k === 'check' && hb.tri) {
     // Sveglia e Ordine: vuoto → fatto (✓) → non fatto (✕) → vuoto
     const x = 'x' + mk(d, r);
@@ -603,13 +655,15 @@ function fake(){
   const t = today(), y = t.getFullYear(), mesi = [];
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let m = 0; m < 12; m++) {
-    mesi[m] = BASE.map(b => Object.assign({}, b, {v: []}));
+    mesi[m] = BASE.concat(EXTRA.map((x, i) => Object.assign({riga: 15 + i}, x))).map(b => Object.assign({}, b, {v: []}));
     for (let d = 1; d <= dim(y, m); d++) {
       const day = new Date(y, m, d); if (day >= t) continue;
       const we = day.getDay() === 0 || day.getDay() === 6;
       mesi[m].forEach(h => {
         if (h.riga === 7) h.v[d-1] = we ? (rnd() < .3 ? 2 : null) : Math.round((4 + rnd() * 4) * 2) / 2;
         else if (h.riga === 8) h.v[d-1] = rnd() < .75 ? [10, 20, 20, 30][Math.floor(rnd()*4)] : null;
+        else if (h.riga === 15) h.v[d-1] = day.getDay() === 1 || day.getDay() === 5 ? Math.round((84 - (m * 31 + d) / 60 + rnd() * 0.8) * 10) / 10 : null;
+        else if (h.riga === 16) h.v[d-1] = rnd() < .6 ? 2 : rnd() < .6 ? 1 : 0;
         else if (h.riga === 9) h.v[d-1] = rnd() < .55 ? [20, 30, 45][Math.floor(rnd()*3)] : null;
         else if (h.riga === 12 || h.riga === 13) h.v[d-1] = rnd() < (h.riga === 12 ? .1 : .2);
         else h.v[d-1] = rnd() < (h.riga === 10 ? .55 : h.riga === 11 ? .7 : .8);
