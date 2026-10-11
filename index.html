@@ -431,15 +431,15 @@ function status(h, d){
   return state.marks[mk(d, h.riga)] || past ? 'ok' : '';
 }
 function weekStats(h, from, to){
-  let sum = 0, cnt = 0, bad = 0, mid = 0;
+  let sum = 0, cnt = 0, bad = 0, mid = 0, low = 0;
   const kg = [];
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
     const v = val(d, h.riga);
     if (h.k === 'weight') { if (numv(v) > 0) kg.push(numv(v)); }
     else if (h.k === 'food') { if (v === null || v === '' || v === '-') continue; const n = numv(v); if (n === 2) cnt++; else if (n === 1) mid++; else bad++; }
-    else if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; }
+    else if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; if (state.marks['q' + mk(d, h.riga)] && state.marks['q' + mk(d, h.riga)] < 3) low++; }
   }
-  return {sum, cnt, bad, mid, kg, last: kg.length ? kg[kg.length - 1] : null};
+  return {sum, cnt, bad, mid, low, kg, last: kg.length ? kg[kg.length - 1] : null};
 }
 
 function lastKgBefore(h, d){ for (let x = addDays(d, -1), i = 0; i < 120; x = addDays(x, -1), i++) { const n = numv(val(x, h.riga)); if (n > 0) return n; } return null; }
@@ -466,6 +466,7 @@ function weekColor(h, w){
   if (h.k === 'vice') { const n = w.bad; if (key === 'j') return n === 0 ? 'gold' : n === 1 ? 'green' : n === 2 ? 'orange' : 'red'; return n === 0 ? 'gold' : n <= h.max ? 'green' : n === h.max + 1 ? 'orange' : 'red'; }
   if (h.k === 'weight') return 'grey';
   if (h.k === 'food') return level(w.cnt, [7, 5, 3]);
+  if (key === 'allenamento') { const n = w.cnt; if (n <= 2) return 'red'; if (n === 3) return 'orange'; return w.low === 0 ? 'gold' : w.low <= (n >= 5 ? 2 : 1) ? 'green' : 'orange'; }
   const got = h.k === 'num' ? w.sum : w.cnt;
   const lv = WEEK_LV[key] || (h.k === 'num' ? [h.weekly * 8 / 7, h.weekly, h.weekly * .6] : [h.per + 1, h.per, Math.ceil(h.per / 2)]);
   return level(got, lv);
@@ -496,7 +497,7 @@ function renderCal(){
       if (hb.k === 'weight' && !hb.days.includes(d.getDay())) { h += '<td class="c na"></td>'; return; }
       if (hb.k === 'num' || hb.k === 'weight') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === '-' ? '–' : v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
       else {
-        const mark = hb.k === 'food' ? (v === '-' ? '–' : v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? '✓' : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
+        const mark = hb.k === 'food' ? (v === '-' ? '–' : v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? (lvKey(hb) === 'allenamento' ? (state.marks['q' + mk(d, hb.riga)] || 3) + '★' : '✓') : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
         inner = '<button type="button" class="cb" data-c="' + id + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>' + mark + '</button>';
       }
       h += '<td class="' + cls + '">' + inner + '</td>';
@@ -634,6 +635,14 @@ $('cal').addEventListener('click', e => {
     if (isTrue(val(d, r))) { state.marks[x] = 1; save(); setVal(d, r, false); }
     else if (state.marks[x]) { delete state.marks[x]; save(); render(); }
     else setVal(d, r, true);
+    return;
+  }
+  if (hb.k === 'check' && lvKey(hb) === 'allenamento') {
+    // Allenamento: vuoto → 3★ → 2★ → 1★ → vuoto (le stelle restano sul telefono)
+    const q = 'q' + mk(d, r), cur = state.marks[q] || 3;
+    if (!isTrue(val(d, r))) { state.marks[q] = 3; save(); setVal(d, r, true); }
+    else if (cur > 1) { state.marks[q] = cur - 1; save(); render(); }
+    else { delete state.marks[q]; save(); setVal(d, r, false); }
     return;
   }
   if (hb.k === 'check') { setVal(d, r, !isTrue(val(d, r))); return; }
