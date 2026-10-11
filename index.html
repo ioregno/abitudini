@@ -457,7 +457,7 @@ function dayColor(h, d, v){
   if (v === '-') return 'skip';
   if (v === null || v === '' || typeof v === 'boolean') return '';
   const n = numv(v), key = lvKey(h);
-  if (key === 'lavoro') { const wd = d.getDay(); if (wd === 0 && n >= 6) return 'gold'; if (n < 8 && (wd === 6 && n >= 5 || wd === 0 && n >= 4)) return 'green'; }
+  if (key === 'lavoro') { const wd = d.getDay(); if (wd === 0) return level(n, [6, 4, 2]); if (n < 8 && wd === 6 && n >= 5) return 'green'; }
   const lv = DAY_LV[key] || (h.daily ? [h.daily * 4 / 3, h.daily, h.daily * 2 / 3] : [h.weekly / 7 * 1.5, h.weekly / 7, h.weekly / 7 * 2 / 3]);
   return level(n, lv);
 }
