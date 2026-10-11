@@ -117,6 +117,7 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .cal td.mon,.cal th.mon{border-left:2px solid var(--muted)}
 .cal input{width:42px;height:42px;border:0;background:transparent;text-align:center;font:700 16px/1 var(--display);color:inherit;padding:0;font-variant-numeric:tabular-nums;border-radius:0}
 .cal input::placeholder{color:var(--line)}
+.cal input{scroll-margin-bottom:90px}
 .cal button.cb{width:42px;height:42px;border:0;background:transparent;font:700 18px/1 var(--body);color:inherit;padding:0}
 .cal button.cb:empty::after{content:"";display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-radius:5px;vertical-align:middle}
 .cal button.cb[disabled]{cursor:default}
@@ -143,6 +144,11 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .cal.wk col.tc{width:50px}.cal.wk col.nc{width:90px}
 .cal.wk input{font-size:14px}
 .cal.wk .tot{font-size:12.5px}
+/* barra sopra la tastiera: giorno grigio / svuota */
+.skipbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:8px;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.12)}
+.skipbar button{flex:1;border:0;border-radius:12px;height:46px;font:700 17px/1 var(--display);letter-spacing:.02em}
+.skipbar .sk{background:#D5D8DD;color:#3A4046}
+.skipbar .cl{flex:0 0 96px;background:var(--sunk);color:var(--ink)}
 .calhint{font-size:12.5px;color:var(--muted);margin:8px 2px 0}
 
 /* barre */
@@ -231,7 +237,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
       <button type="button" data-m="m">Mese intero</button>
     </div>
     <div class="calwrap" id="calwrap"><table class="cal" id="cal"></table></div>
-    <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle; scrivi x se quel giorno non potevi (diventa grigia). Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro grigio (giorno in cui non potevi), cinque la svuoti.</p>
+    <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle; se quel giorno non potevi, tocca la casella e premi Giorno grigio sopra la tastiera. Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro grigio (giorno in cui non potevi), cinque la svuoti.</p>
   </section>
 
   <section aria-label="Mese">
@@ -256,6 +262,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
     <p>Vuoi vedere come appare dopo qualche mese? <button type="button" class="linkbtn" id="demoGo">Apri l'esempio</button></p>
   </details>
 </div>
+<div class="skipbar" id="skipbar" hidden><button type="button" class="sk" id="skipBtn">Giorno grigio · non potevo</button><button type="button" class="cl" id="clearBtn">Svuota</button></div>
 <div class="toast" id="toast" hidden></div>
 <dialog id="dlgW"><div class="sheet" id="sheetW"></div></dialog>
 
@@ -515,7 +522,9 @@ function renderCal(){
   });
   h += '</tbody><tfoot><tr><td class="hn">Fatte</td>' + days.map(d => d > t ? '<td></td>' : '<td>' + H.filter(hb => status(hb, d) === 'ok').length + '/' + H.filter(hb => status(hb, d) !== 'na').length + '</td>').join('') + '<td></td></tr></tfoot>';
   const wrap = $('calwrap'), keep = wrap.scrollLeft, same = $('cal').dataset.p === iso(from) + ui.mode;
-  $('cal').innerHTML = h; $('cal').classList.toggle('wk', wk); $('cal').dataset.p = iso(from) + ui.mode;
+  $('cal').innerHTML = h; $('cal').classList.toggle('wk', wk);
+  // se la casella che stavi scrivendo è sparita con il ridisegno, la barra della tastiera va via
+  if (!document.activeElement || !document.activeElement.matches('.cal input')) { skipInput = null; $('skipbar').hidden = true; } $('cal').dataset.p = iso(from) + ui.mode;
   // nel mese intero parte già scrollato su oggi
   if (same) wrap.scrollLeft = keep;
   else if (!wk) { const th = $('cal').querySelector('th.today'); wrap.scrollLeft = th ? Math.max(0, th.offsetLeft - 92 - 42 * 3) : 0; }
@@ -634,17 +643,32 @@ $('cal').addEventListener('click', e => {
   else if (state.marks[k]) { delete state.marks[k]; save(); setVal(d, r, true); }
   else { state.marks[k] = 1; save(); setVal(d, r, false); }
 });
-$('cal').addEventListener('change', e => {
-  const i = e.target.closest('input[data-c]'); if (!i) return;
-  const [d, r] = cellOf(i), raw = i.value.trim().replace(',', '.'), n = parseFloat(raw);
+function commitCell(i, forced){
+  const [d, r] = cellOf(i), raw = (forced !== undefined ? forced : i.value).trim().replace(',', '.'), n = parseFloat(raw);
   i.blur();
   // x, - o / al posto del numero: giorno in cui non potevi (grigio, non conta come zero)
   const hb = habits().find(x => x.riga === r);
   if (hb && hb.k === 'num' && /^(x|-|–|\/)$/i.test(raw)) { setVal(d, r, '-'); return; }
   setVal(d, r, raw === '' || isNaN(n) || n < 0 ? null : Math.round(n * 10) / 10);
-});
+}
+$('cal').addEventListener('change', e => { const i = e.target.closest('input[data-c]'); if (i) commitCell(i); });
 $('cal').addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('.cal input')) renderCal(); }, 0));
 $('cal').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset.hist) { openHist(+e.target.dataset.hist); return; } if (e.key === 'Enter' && e.target.matches('input')) e.target.blur(); });
+// barra sopra la tastiera, solo per le caselle a numero (la tastiera dell'iPhone non ha le lettere)
+let skipInput = null;
+const placeBar = () => { const vv = window.visualViewport; $('skipbar').style.bottom = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) + 'px' : '0'; };
+$('cal').addEventListener('focusin', e => {
+  const i = e.target.closest('input[data-c]'); if (!i) return;
+  const hb = habits().find(x => x.riga === cellOf(i)[1]);
+  if (!hb || hb.k !== 'num') return;
+  skipInput = i; $('skipbar').hidden = false; placeBar();
+});
+$('cal').addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('.cal input')) { skipInput = null; $('skipbar').hidden = true; } }, 0));
+if (window.visualViewport) { visualViewport.addEventListener('resize', placeBar); visualViewport.addEventListener('scroll', placeBar); }
+// i bottoni non devono togliere il focus alla casella prima del tocco
+$('skipbar').addEventListener('mousedown', e => e.preventDefault());
+$('skipBtn').addEventListener('click', () => { const i = skipInput; if (i) commitCell(i, 'x'); });
+$('clearBtn').addEventListener('click', () => { const i = skipInput; if (i) commitCell(i, ''); });
 $('mode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; ui.mode = b.dataset.m; saveUi(); render(); });
 $('prev').addEventListener('click', () => { sel = ui.mode === 'w' ? addDays(monday(sel), -7) : new Date(sel.getFullYear(), sel.getMonth() - 1, 1); render(); });
 $('next').addEventListener('click', () => { if ($('next').disabled) return; sel = ui.mode === 'w' ? addDays(monday(sel), 7) : new Date(sel.getFullYear(), sel.getMonth() + 1, 1); if (sel > today()) sel = today(); render(); });
