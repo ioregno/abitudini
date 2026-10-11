@@ -437,7 +437,7 @@ function weekStats(h, from, to){
     const v = val(d, h.riga);
     if (h.k === 'weight') { if (numv(v) > 0) kg.push(numv(v)); }
     else if (h.k === 'food') { if (v === null || v === '' || v === '-') continue; const n = numv(v); if (n === 2) cnt++; else if (n === 1) mid++; else bad++; }
-    else if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; if (state.marks['q' + mk(d, h.riga)] && state.marks['q' + mk(d, h.riga)] < 3) low++; }
+    else if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; if ((state.marks['q' + mk(d, h.riga)] || 0) < 3) low++; }
   }
   return {sum, cnt, bad, mid, low, kg, last: kg.length ? kg[kg.length - 1] : null};
 }
@@ -497,7 +497,7 @@ function renderCal(){
       if (hb.k === 'weight' && !hb.days.includes(d.getDay())) { h += '<td class="c na"></td>'; return; }
       if (hb.k === 'num' || hb.k === 'weight') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === '-' ? '–' : v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
       else {
-        const mark = hb.k === 'food' ? (v === '-' ? '–' : v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? (lvKey(hb) === 'allenamento' ? (state.marks['q' + mk(d, hb.riga)] || 3) + '★' : '✓') : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
+        const mark = hb.k === 'food' ? (v === '-' ? '–' : v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? (lvKey(hb) === 'allenamento' ? (state.marks['q' + mk(d, hb.riga)] ? state.marks['q' + mk(d, hb.riga)] + '★' : '✓') : '✓') : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
         inner = '<button type="button" class="cb" data-c="' + id + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>' + mark + '</button>';
       }
       h += '<td class="' + cls + '">' + inner + '</td>';
@@ -619,6 +619,21 @@ function openHist(riga){
 }
 $('dlgW').addEventListener('click', e => { if (e.target.id === 'closeW' || e.target === $('dlgW')) $('dlgW').close(); });
 const cellOf = el => { const [ds, r] = el.dataset.c.split('|'); return [parse(ds), +r]; };
+let lpFired = false, lpTimer = null;
+const lpStop = () => { clearTimeout(lpTimer); lpTimer = null; };
+$('cal').addEventListener('pointerdown', e => {
+  const b = e.target.closest('button.cb'); if (!b || b.disabled) return;
+  const [d, r] = cellOf(b), hb = habits().find(x => x.riga === r);
+  if (!hb || hb.k !== 'check' || lvKey(hb) !== 'allenamento' || !isTrue(val(d, r))) return;
+  lpFired = false;
+  lpTimer = setTimeout(() => {
+    const q = 'q' + mk(d, r), cur = state.marks[q] || 0;
+    state.marks[q] = cur === 0 ? 3 : cur === 1 ? 3 : cur - 1;
+    lpFired = true; save(); render();
+  }, 500);
+});
+['pointerup', 'pointercancel', 'pointermove', 'scroll'].forEach(t => $('cal').addEventListener(t, lpStop, true));
+$('cal').addEventListener('contextmenu', e => { if (e.target.closest('button.cb')) e.preventDefault(); });
 $('cal').addEventListener('click', e => {
   const th = e.target.closest('[data-hist]'); if (th) { openHist(+th.dataset.hist); return; }
   const b = e.target.closest('button.cb'); if (!b || b.disabled) return;
@@ -638,11 +653,10 @@ $('cal').addEventListener('click', e => {
     return;
   }
   if (hb.k === 'check' && lvKey(hb) === 'allenamento') {
-    // Allenamento: vuoto → 3★ → 2★ → 1★ → vuoto (le stelle restano sul telefono)
-    const q = 'q' + mk(d, r), cur = state.marks[q] || 3;
-    if (!isTrue(val(d, r))) { state.marks[q] = 3; save(); setVal(d, r, true); }
-    else if (cur > 1) { state.marks[q] = cur - 1; save(); render(); }
-    else { delete state.marks[q]; save(); setVal(d, r, false); }
+    // Allenamento: tocco = ✓ / niente; le stelle si danno con la pressione lunga
+    if (lpFired) { lpFired = false; return; }
+    delete state.marks['q' + mk(d, r)]; save();
+    setVal(d, r, !isTrue(val(d, r)));
     return;
   }
   if (hb.k === 'check') { setVal(d, r, !isTrue(val(d, r))); return; }
