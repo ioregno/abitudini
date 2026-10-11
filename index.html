@@ -231,7 +231,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
       <button type="button" data-m="m">Mese intero</button>
     </div>
     <div class="calwrap" id="calwrap"><table class="cal" id="cal"></table></div>
-    <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle; scrivi x se quel giorno non potevi (diventa grigia). Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro la svuoti.</p>
+    <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle; scrivi x se quel giorno non potevi (diventa grigia). Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro grigio (giorno in cui non potevi), cinque la svuoti.</p>
   </section>
 
   <section aria-label="Mese">
@@ -418,6 +418,7 @@ function status(h, d){
   if (h.k === 'num') { const n = numv(v); return h.daily ? (n >= h.daily ? 'ok' : '') : (n > 0 ? 'ok' : ''); }
   if (h.k === 'check') return isTrue(v) ? 'ok' : '';
   if (h.k === 'weight') return h.days.includes(d.getDay()) ? (numv(v) > 0 ? 'ok' : '') : 'na';
+  if (h.k === 'food' && v === '-') return 'na';
   if (h.k === 'food') return v === null || v === '' ? '' : numv(v) === 2 ? 'ok' : numv(v) === 0 ? 'bad' : 'mid';
   if (isTrue(v)) return 'bad';
   return state.marks[mk(d, h.riga)] || past ? 'ok' : '';
@@ -428,7 +429,7 @@ function weekStats(h, from, to){
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
     const v = val(d, h.riga);
     if (h.k === 'weight') { if (numv(v) > 0) kg.push(numv(v)); }
-    else if (h.k === 'food') { if (v === null || v === '') continue; const n = numv(v); if (n === 2) cnt++; else if (n === 1) mid++; else bad++; }
+    else if (h.k === 'food') { if (v === null || v === '' || v === '-') continue; const n = numv(v); if (n === 2) cnt++; else if (n === 1) mid++; else bad++; }
     else if (h.k === 'num') sum += numv(v); else if (isTrue(v)) { cnt++; bad++; }
   }
   return {sum, cnt, bad, mid, kg, last: kg.length ? kg[kg.length - 1] : null};
@@ -444,7 +445,7 @@ const level = (v, [a, b, c]) => v >= a ? 'gold' : v >= b ? 'green' : v >= c ? 'o
 function dayColor(h, d, v){
   if (h.k === 'check') return isTrue(v) ? 'green' : h.tri && state.marks['x' + mk(d, h.riga)] ? 'sgarro' : '';
   if (h.k === 'vice') return isTrue(v) ? 'sgarro' : state.marks[mk(d, h.riga)] ? 'green' : '';
-  if (h.k === 'food') return v === null || v === '' ? '' : ['sgarro', 'orange', 'green'][numv(v)] || '';
+  if (h.k === 'food') return v === '-' ? 'skip' : v === null || v === '' ? '' : ['sgarro', 'orange', 'green'][numv(v)] || '';
   if (h.k === 'weight') return '';
   if (v === '-') return 'skip';
   if (v === null || v === '' || typeof v === 'boolean') return '';
@@ -488,7 +489,7 @@ function renderCal(){
       if (hb.k === 'weight' && !hb.days.includes(d.getDay())) { h += '<td class="c na"></td>'; return; }
       if (hb.k === 'num' || hb.k === 'weight') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === '-' ? '–' : v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
       else {
-        const mark = hb.k === 'food' ? (v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? '✓' : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
+        const mark = hb.k === 'food' ? (v === '-' ? '–' : v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? '✓' : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
         inner = '<button type="button" class="cb" data-c="' + id + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>' + mark + '</button>';
       }
       h += '<td class="' + cls + '">' + inner + '</td>';
@@ -613,9 +614,9 @@ $('cal').addEventListener('click', e => {
   const b = e.target.closest('button.cb'); if (!b || b.disabled) return;
   const [d, r] = cellOf(b), hb = habits().find(x => x.riga === r); if (!hb) return;
   if (hb.k === 'food') {
-    // Alimentazione: vuoto → verde → arancione → sgarro → vuoto
-    const v = val(d, r), n = v === null || v === '' ? null : numv(v);
-    setVal(d, r, n === null ? 2 : n === 2 ? 1 : n === 1 ? 0 : null);
+    // Alimentazione: vuoto → verde → arancione → sgarro → grigio (non applicabile) → vuoto
+    const v = val(d, r), n = v === null || v === '' ? null : v === '-' ? -1 : numv(v);
+    setVal(d, r, n === null ? 2 : n === 2 ? 1 : n === 1 ? 0 : n === 0 ? '-' : null);
     return;
   }
   if (hb.k === 'check' && hb.tri) {
