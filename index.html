@@ -131,6 +131,7 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .L-orange{background:#FFD8A5!important;color:#8C4411}
 .L-red{background:#EF4444!important;color:#fff}
 .L-sgarro{background:#FCE8E6!important;color:#C4211E}
+.L-skip{background:#D5D8DD!important;color:#5C636A}
 .L-grey{background:#F2F2F2!important;color:#666}
 /* settimana: tutto dentro lo schermo senza scorrere */
 .cal.wk{width:100%;table-layout:fixed}
@@ -230,7 +231,7 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
       <button type="button" data-m="m">Mese intero</button>
     </div>
     <div class="calwrap" id="calwrap"><table class="cal" id="cal"></table></div>
-    <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle. Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro la svuoti.</p>
+    <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle; scrivi x se quel giorno non potevi (diventa grigia). Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro la svuoti.</p>
   </section>
 
   <section aria-label="Mese">
@@ -392,7 +393,7 @@ async function load(quiet){
     if (!r.ok) throw new Error(r.errore === 'chiave' ? 'chiave sbagliata' : (r.errore || 'errore'));
     state.data = {anno: r.anno, mesi: r.mesi, albo: r.albo || [], ora: r.ora};
     // le modifiche non ancora arrivate al foglio restano visibili
-    state.queue.forEach(q => { const d = new Date(r.anno, q.m-1, q.d); putLocal(d, q.r, q.v === '' ? null : q.v === 'true' ? true : q.v === 'false' ? false : Number(q.v)); });
+    state.queue.forEach(q => { const d = new Date(r.anno, q.m-1, q.d); putLocal(d, q.r, q.v === '' ? null : q.v === 'true' ? true : q.v === 'false' ? false : q.v === '-' ? '-' : Number(q.v)); });
     // Peso e Alimentazione restano visibili anche se lo script è la versione vecchia (che non rilegge righe senza nome)
     Object.keys(state.extra).forEach(k => { const [ds, rr] = k.split('|'), d = parse(ds); if (state.extra[k] !== null && val(d, +rr) === null && d.getFullYear() === r.anno) putLocal(d, +rr, state.extra[k]); });
     lastErr = ''; save(); if (!quiet) toast('Foglio caricato');
@@ -413,6 +414,7 @@ function setSync(){
 // J e S: nel foglio la spunta (TRUE) è lo sgarro, come nelle formule "Superato" e nelle streak dell'Albo d'Oro
 function status(h, d){
   const v = val(d, h.riga), past = d < today();
+  if (h.k === 'num' && v === '-') return 'na';
   if (h.k === 'num') { const n = numv(v); return h.daily ? (n >= h.daily ? 'ok' : '') : (n > 0 ? 'ok' : ''); }
   if (h.k === 'check') return isTrue(v) ? 'ok' : '';
   if (h.k === 'weight') return h.days.includes(d.getDay()) ? (numv(v) > 0 ? 'ok' : '') : 'na';
@@ -444,6 +446,7 @@ function dayColor(h, d, v){
   if (h.k === 'vice') return isTrue(v) ? 'sgarro' : state.marks[mk(d, h.riga)] ? 'green' : '';
   if (h.k === 'food') return v === null || v === '' ? '' : ['sgarro', 'orange', 'green'][numv(v)] || '';
   if (h.k === 'weight') return '';
+  if (v === '-') return 'skip';
   if (v === null || v === '' || typeof v === 'boolean') return '';
   const n = numv(v), key = lvKey(h);
   if (key === 'lavoro') { const wd = d.getDay(); if (wd === 0 && n >= 6) return 'gold'; if (n < 8 && (wd === 6 && n >= 5 || wd === 0 && n >= 4)) return 'green'; }
@@ -483,7 +486,7 @@ function renderCal(){
       const cls = 'c' + (col ? ' L-' + col : '') + (fut ? ' fut' : d.getDay() === 0 ? ' sun' : '') + (!wk && d.getDay() === 1 && d.getDate() > 1 ? ' mon' : '');
       let inner;
       if (hb.k === 'weight' && !hb.days.includes(d.getDay())) { h += '<td class="c na"></td>'; return; }
-      if (hb.k === 'num' || hb.k === 'weight') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
+      if (hb.k === 'num' || hb.k === 'weight') inner = '<input type="text" inputmode="decimal" enterkeyhint="done" data-c="' + id + '" value="' + (v === '-' ? '–' : v === null || v === '' || typeof v === 'boolean' ? '' : fnum(numv(v))) + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>';
       else {
         const mark = hb.k === 'food' ? (v === null || v === '' ? '' : ['✕', '~', '✓'][numv(v)] || '') : hb.k === 'check' ? (isTrue(v) ? '✓' : hb.tri && state.marks['x' + mk(d, hb.riga)] ? '✕' : '') : (isTrue(v) ? '✕' : state.marks[mk(d, hb.riga)] ? '✓' : '');
         inner = '<button type="button" class="cb" data-c="' + id + '" aria-label="' + esc(hb.label) + ' ' + d.getDate() + '"' + (fut ? ' disabled' : '') + '>' + mark + '</button>';
@@ -634,6 +637,9 @@ $('cal').addEventListener('change', e => {
   const i = e.target.closest('input[data-c]'); if (!i) return;
   const [d, r] = cellOf(i), raw = i.value.trim().replace(',', '.'), n = parseFloat(raw);
   i.blur();
+  // x, - o / al posto del numero: giorno in cui non potevi (grigio, non conta come zero)
+  const hb = habits().find(x => x.riga === r);
+  if (hb && hb.k === 'num' && /^(x|-|–|\/)$/i.test(raw)) { setVal(d, r, '-'); return; }
   setVal(d, r, raw === '' || isNaN(n) || n < 0 ? null : Math.round(n * 10) / 10);
 });
 $('cal').addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('.cal input')) renderCal(); }, 0));

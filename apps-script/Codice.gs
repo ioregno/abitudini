@@ -53,6 +53,7 @@ function scrivi(p) {
     const cella = sh.getRange(r, 4 + d);
     const v = p.v;
     if (v === 'true' || v === 'false') cella.setValue(v === 'true');
+    else if (v === '-') cella.setValue('-'); // giorno non applicabile (grigio nell'app)
     else if (v === '' || v === undefined) cella.clearContent();
     else {
       const n = Number(String(v).replace(',', '.'));
