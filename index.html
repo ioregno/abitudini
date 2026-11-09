@@ -575,14 +575,14 @@ function renderMonth(){
 
 // andamento degli ultimi 6 mesi: per ogni gruppo un indice 0-100 = media di quanto ogni abitudine ha centrato il suo obiettivo nel mese
 const GROUPS = [
-  {nome: 'Lavoro', sub: 'ore rispetto all\'obiettivo', keys: ['lavoro']},
+  {nome: 'Lavoro', sub: 'obiettivo 6 h al giorno', keys: ['lavoro']},
   {nome: 'Hobby', sub: 'Lettura · Pianoforte · Allenamento', keys: ['lettura', 'pianoforte', 'allenamento']},
   {nome: 'Routine', sub: 'Sveglia · Ordine · J · Alimentazione', keys: ['sveglia', 'ordine', 'j', 'alimentazione']}
 ];
 function habitScore(h, from, to){
   let n = 0, grey = 0, any = false;
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) { n++; const v = val(d, h.riga); if (v !== null && v !== '') any = true; if (v === '-') grey++; }
-  if (!any || !n) return null;
+  if (!n || (!any && h.k !== 'vice')) return null;   // J senza sgarri segnati = mese pulito
   const w = weekStats(h, from, to), days = n - grey;
   if (days <= 0) return null;
   if (h.k === 'num') { const goal = (h.daily || h.weekly / 7) * days; return goal ? Math.min(1, w.sum / goal) : null; }
@@ -595,7 +595,9 @@ function monthIndex(g, y, m){
   const t = today(), first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
   if (first > t || !yearOK(first)) return null;
   const to = last < t ? last : (t.getDate() > 1 ? addDays(t, -1) : t);   // mese in corso: fino a ieri
-  const H = habits(), sc = g.keys.map(k => H.find(h => lvKey(h) === k)).filter(Boolean).map(h => habitScore(h, first, to)).filter(x => x !== null);
+  const H = habits(), hs = g.keys.map(k => H.find(h => lvKey(h) === k)).filter(Boolean);
+  if (!hs.some(h => h.k !== 'vice' && habitScore(h, first, to) !== null)) return null;   // mese senza dati
+  const sc = hs.map(h => habitScore(h, first, to)).filter(x => x !== null);
   return sc.length ? Math.round(sc.reduce((a, b) => a + b, 0) / sc.length * 100) : null;
 }
 const ixColor = v => v >= 90 ? 'gold' : v >= 70 ? 'green' : v >= 50 ? 'orange' : 'red';
