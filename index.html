@@ -173,6 +173,21 @@ header .ttl{display:flex;flex-direction:column;gap:4px;min-width:0}
 .avg .y b{color:var(--ink)}
 .avg li.hd{padding:8px 14px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .avg li.hd span{text-align:right}
+/* andamento 6 mesi: indice 0-100 per Lavoro, Hobby, Routine */
+.trend{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.tc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.tc .hd{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px;align-items:end}
+.tc .t{font:700 21px/1.05 var(--display)}
+.tc .t small{display:block;font:500 12px/1.35 var(--body);color:var(--muted);margin-top:2px}
+.tc .ix{font:700 34px/1 var(--display);text-align:right;font-variant-numeric:tabular-nums}
+.tc .ix small{display:block;font:500 11px/1.3 var(--body);color:var(--muted)}
+.tc .ix small b.up{color:var(--ok)} .tc .ix small b.dn{color:var(--bad)}
+.cols{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:10px;height:96px;align-items:end}
+.col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px}
+.col .b{width:100%;border-radius:6px 6px 3px 3px;min-height:3px;font:700 13px/1 var(--display);display:flex;justify-content:center;padding-top:4px;font-variant-numeric:tabular-nums}
+.col .b.none{background:var(--sunk);color:var(--muted)}
+.col .m{font-size:11px;color:var(--muted)}
+.col.cur .m{color:var(--ink);font-weight:600}
 /* resoconto settimane (foglio dal basso) */
 dialog{border:0;padding:0;margin:auto auto 0;width:100%;max-width:480px;max-height:85vh;border-radius:20px 20px 0 0;background:var(--surface);color:var(--ink)}
 dialog::backdrop{background:rgba(0,0,0,.45)}
@@ -240,10 +255,15 @@ details input{width:100%;border:1px solid var(--line);border-radius:10px;backgro
     <p class="calhint">Scrivi ore, minuti e peso (lunedì e venerdì) nelle caselle; se quel giorno non potevi, tocca la casella e premi Giorno grigio sopra la tastiera. Allenamento: tocca per spuntare. Sveglia, Ordine, J e S: un tocco ✓ verde, due ✕ rosso, tre la svuoti. Alimentazione: un tocco verde, due arancione, tre sgarro, quattro grigio (giorno in cui non potevi), cinque la svuoti.</p>
   </section>
 
+  <section aria-label="Andamento">
+    <div class="eyebrow">Andamento</div>
+    <h2>Ultimi 6 mesi</h2>
+    <div class="trend" id="trend"></div>
+  </section>
+
   <section aria-label="Mese">
     <div class="eyebrow">Mese</div>
     <h2 id="moTitle"></h2>
-    <ul class="avg" id="avg"></ul>
     <div class="bars" id="moBars"></div>
   </section>
 
@@ -538,21 +558,7 @@ function renderMonth(){
   const H = habits(), y = sel.getFullYear(), m = sel.getMonth(), days = dim(y, m), t = today();
   $('moTitle').textContent = MESI[m][0].toUpperCase() + MESI[m].slice(1) + ' ' + y;
   const first = new Date(y, m, 1), last = new Date(y, m, days), upTo = last < t ? last : t;
-  // media a settimana delle ultime 4 settimane (fino a ieri), e quante sarebbero in un anno a questo ritmo
-  const r1 = addDays(t, -1), r0 = addDays(t, -28), wks = 4;
-  $('avg').innerHTML = '<li class="hd"><span style="text-align:left">Ultime 4 settimane</span><span>a settimana</span><span>in un anno</span></li>' + (wks ? H.map(h => {
-    if (h.k === 'weight') {
-      const w = weekStats(h, r0, t);
-      if (w.kg.length < 2) return '<li><span class="n">Peso</span><span class="w">' + (w.last !== null ? fnum(w.last) + '<small>kg</small>' : '–') + '</span><span class="y"><small>servono 2 pesate</small></span></li>';
-      // andamento: differenza tra prima e ultima pesata delle 4 settimane
-      const per = (w.kg[w.kg.length - 1] - w.kg[0]) / 4;
-      return '<li><span class="n">Peso</span><span class="w">' + sgn(per) + '<small>kg</small></span><span class="y">→ <b>' + sgn(Math.round(per * 52)) + '</b><small>kg</small></span></li>';
-    }
-    const w = weekStats(h, r0, r1), got = h.k === 'num' ? w.sum : h.k === 'vice' ? w.bad : w.cnt;
-    const per = got / wks, unit = h.k === 'num' ? h.unit : h.k === 'food' ? 'giorni ✓' : h.k === 'vice' ? (Math.round(per * 52) === 1 ? 'sgarro' : 'sgarri') : 'volte';
-    const minH = h.k === 'num' && h.unit === 'min', yr = Math.round(per * 52 / (minH ? 60 : 1));
-    return '<li><span class="n">' + esc(h.label.replace(/\s*\(.*?\)\s*/g, ' ').trim()) + '</span><span class="w">' + (minH ? Math.round(per) : fnum(per)) + '<small>' + (h.k === 'num' ? h.unit : h.k === 'food' ? 'giorni ✓' : h.k === 'vice' ? 'sgarri' : 'volte') + '</small></span><span class="y">→ <b>' + yr + '</b><small>' + (minH ? 'h' : unit) + '</small></span></li>';
-  }).join('') : '<li><span class="n" style="color:var(--muted)">Il mese non è ancora iniziato</span></li>');
+  renderTrend();
   $('moBars').innerHTML = H.map(h => {
     const w = weekStats(h, first, last);
     if (h.k === 'weight') { const prev = lastKgBefore(h, first), dlt = w.last !== null && prev !== null ? w.last - prev : null; return bar(h.label, 0, '', w.last !== null ? '<b>' + fnum(w.last) + ' kg</b>' + (dlt !== null ? ' · ' + sgn(dlt) : '') : '–'); }
@@ -565,6 +571,46 @@ function renderMonth(){
     const got = h.k === 'num' ? w.sum : w.cnt, p = goal ? got / goal : 0;
     return bar(h.label, Math.min(1, p), p >= 1 ? 'ok' : '', '<b' + (p >= 1 ? ' class="ok"' : '') + '>' + Math.round(p * 100) + '%</b> · ' + fnum(got) + (h.k === 'num' ? ' ' + h.unit : '/' + goal));
   }).join('');
+}
+
+// andamento degli ultimi 6 mesi: per ogni gruppo un indice 0-100 = media di quanto ogni abitudine ha centrato il suo obiettivo nel mese
+const GROUPS = [
+  {nome: 'Lavoro', sub: 'ore rispetto all\'obiettivo', keys: ['lavoro']},
+  {nome: 'Hobby', sub: 'Lettura · Pianoforte · Allenamento', keys: ['lettura', 'pianoforte', 'allenamento']},
+  {nome: 'Routine', sub: 'Sveglia · Ordine · J · Alimentazione', keys: ['sveglia', 'ordine', 'j', 'alimentazione']}
+];
+function habitScore(h, from, to){
+  let n = 0, grey = 0, any = false;
+  for (let d = new Date(from); d <= to; d = addDays(d, 1)) { n++; const v = val(d, h.riga); if (v !== null && v !== '') any = true; if (v === '-') grey++; }
+  if (!any || !n) return null;
+  const w = weekStats(h, from, to), days = n - grey;
+  if (days <= 0) return null;
+  if (h.k === 'num') { const goal = (h.daily || h.weekly / 7) * days; return goal ? Math.min(1, w.sum / goal) : null; }
+  if (h.k === 'check') return Math.min(1, w.cnt / (h.per * n / 7));
+  if (h.k === 'vice') return Math.max(0, 1 - Math.max(0, w.bad - h.max * n / 7) * .25);   // ogni sgarro oltre il limite toglie 25 punti
+  if (h.k === 'food') return (w.cnt + w.mid * .5) / days;   // verde = pieno, arancione = mezzo
+  return null;
+}
+function monthIndex(g, y, m){
+  const t = today(), first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
+  if (first > t || !yearOK(first)) return null;
+  const to = last < t ? last : (t.getDate() > 1 ? addDays(t, -1) : t);   // mese in corso: fino a ieri
+  const H = habits(), sc = g.keys.map(k => H.find(h => lvKey(h) === k)).filter(Boolean).map(h => habitScore(h, first, to)).filter(x => x !== null);
+  return sc.length ? Math.round(sc.reduce((a, b) => a + b, 0) / sc.length * 100) : null;
+}
+const ixColor = v => v >= 90 ? 'gold' : v >= 70 ? 'green' : v >= 50 ? 'orange' : 'red';
+function renderTrend(){
+  const t = today(), ms = [];
+  for (let i = 5; i >= 0; i--) { const d = new Date(t.getFullYear(), t.getMonth() - i, 1); ms.push([d.getFullYear(), d.getMonth()]); }
+  $('trend').innerHTML = GROUPS.map(g => {
+    const vals = ms.map(([y, m]) => monthIndex(g, y, m)), cur = vals[5], prev = vals[4];
+    const dl = cur !== null && prev !== null ? cur - prev : null;
+    const head = '<div class="hd"><span class="t">' + g.nome + '<small>' + esc(g.sub) + '</small></span><span class="ix">' + (cur !== null ? cur : '–') +
+      '<small>' + (dl !== null ? '<b class="' + (dl > 0 ? 'up' : dl < 0 ? 'dn' : '') + '">' + sgn(dl) + '</b> su ' + MESI[ms[4][1]].slice(0, 3) : 'indice del mese') + '</small></span></div>';
+    const cols = ms.map(([y, m], i) => { const v = vals[i];
+      return '<div class="col' + (i === 5 ? ' cur' : '') + '">' + (v === null ? '<div class="b none" style="height:22px">–</div>' : '<div class="b L-' + ixColor(v) + '" style="height:' + Math.max(18, v) + '%">' + v + '</div>') + '<span class="m">' + MESI[m].slice(0, 3) + '</span></div>'; }).join('');
+    return '<div class="tc">' + head + '<div class="cols">' + cols + '</div></div>';
+  }).join('') + '<p class="calhint">Indice 0–100 di ogni mese: quanto hai centrato gli obiettivi di ogni abitudine del gruppo (100 = tutti centrati). I giorni grigi non contano. Il mese in corso conta fino a ieri.</p>';
 }
 
 // Albo d'Oro: righe lette dal foglio così come sono, le intestazioni dicono quali colonne mostrare
