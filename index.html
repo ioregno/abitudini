@@ -607,12 +607,12 @@ function renderTrend(){
   $('trend').innerHTML = GROUPS.map(g => {
     const vals = ms.map(([y, m]) => monthIndex(g, y, m)), cur = vals[5], prev = vals[4];
     const dl = cur !== null && prev !== null ? cur - prev : null;
-    const head = '<div class="hd"><span class="t">' + g.nome + '<small>' + esc(g.sub) + '</small></span><span class="ix">' + (cur !== null ? cur : '–') +
+    const head = '<div class="hd"><span class="t">' + g.nome + '<small>' + esc(g.sub) + '</small></span><span class="ix">' + (cur !== null ? cur + '%' : '–') +
       '<small>' + (dl !== null ? '<b class="' + (dl > 0 ? 'up' : dl < 0 ? 'dn' : '') + '">' + sgn(dl) + '</b> su ' + MESI[ms[4][1]].slice(0, 3) : 'indice del mese') + '</small></span></div>';
     const cols = ms.map(([y, m], i) => { const v = vals[i];
-      return '<div class="col' + (i === 5 ? ' cur' : '') + '">' + (v === null ? '<div class="b none" style="height:22px">–</div>' : '<div class="b L-' + ixColor(v) + '" style="height:' + Math.max(18, v) + '%">' + v + '</div>') + '<span class="m">' + MESI[m].slice(0, 3) + '</span></div>'; }).join('');
+      return '<div class="col' + (i === 5 ? ' cur' : '') + '">' + (v === null ? '<div class="b none" style="height:22px">–</div>' : '<div class="b L-' + ixColor(v) + '" style="height:' + Math.max(18, v) + '%">' + v + '%</div>') + '<span class="m">' + MESI[m].slice(0, 3) + '</span></div>'; }).join('');
     return '<div class="tc">' + head + '<div class="cols">' + cols + '</div></div>';
-  }).join('') + '<p class="calhint">Indice 0–100 di ogni mese: quanto hai centrato gli obiettivi di ogni abitudine del gruppo (100 = tutti centrati). I giorni grigi non contano. Il mese in corso conta fino a ieri.</p>';
+  }).join('') + '<p class="calhint">Percentuale di ogni mese: quanto hai centrato gli obiettivi di ogni abitudine del gruppo (100 = tutti centrati). I giorni grigi non contano. Il mese in corso conta fino a ieri.</p>';
 }
 
 // Albo d'Oro: righe lette dal foglio così come sono, le intestazioni dicono quali colonne mostrare
